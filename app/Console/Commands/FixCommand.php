@@ -45,15 +45,26 @@ final class FixCommand extends Command
         $this->line('Found '.count($citizens));
 
         $rows = [];
+        $fixed = 0;
         foreach ($citizens as $citizen) {
+            $mail = $citizen->getFirstAttribute('mail');
             $alternates = $citizen->getAttribute('gosamailalternateaddress') ?? [];
+
+            if (count($alternates) === 1 && $alternates[0] === $mail) {
+             //   $citizen->setAttribute('gosamailalternateaddress', []);
+             //   $citizen->save();
+                $fixed++;
+                $alternates = ['(removed - same as mail)'];
+            }
+
             $rows[] = [
-                $citizen->getFirstAttribute('mail'),
+                $mail,
                 implode(', ', $alternates),
             ];
         }
 
         $this->table(['Email', 'Alternate Addresses'], $rows);
+        $this->info('Fixed '.$fixed.' citizens with duplicate alternate address.');
 
         return \Symfony\Component\Console\Command\Command::SUCCESS;
     }
