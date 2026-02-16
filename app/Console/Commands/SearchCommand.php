@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Imap\ImapCitoyen;
+use App\Ldap\CitoyenLdap;
 use App\Ldap\LdapCitoyenRepository;
 use App\Repository\LoginRepository;
 use Illuminate\Console\Command;
@@ -24,7 +25,6 @@ class SearchCommand extends Command
     protected $description = 'Recherche un compte citoyen suivant le mot clef';
 
     public function __construct(
-        private readonly LdapCitoyenRepository $ldapCitoyenRepository,
         private readonly LoginRepository $loginRepository
     ) {
         parent::__construct();
@@ -39,7 +39,7 @@ class SearchCommand extends Command
 
         if ($uid) {
             try {
-                $citizens = $this->ldapCitoyenRepository->search($uid);
+                $citizens = CitoyenLdap::query()->where($uid, 'contains')->get();
             } catch (\Exception $e) {
                 $this->error($e->getMessage());
 
