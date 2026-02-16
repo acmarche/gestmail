@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Filament\Resources\Citoyens\Pages;
 
 use App\Filament\Resources\Citoyens\CitoyenResource;
@@ -9,27 +11,32 @@ use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Tables\Table;
 
-class ListCitoyens extends ListRecords
+final class ListCitoyens extends ListRecords
 {
     protected static string $resource = CitoyenResource::class;
 
-    public function mount(): void
-    {
-        $ldapCitoyenRepository = app(LdapCitoyenRepository::class);
-    }
-
     public function table(Table $table): Table
     {
-      $citizens=   $this->ldapCitoyenRepository->getAll();
-
         return CitoyensTable::configure($table)
-            ->records(fn(): array => [
-            1 => [
-                'last_name' => 'First item',
-                'first_name' => 'first-item',
-                'email' => true,
-            ],
-        ]);
+            ->records(function (): array {
+                $repository = app(LdapCitoyenRepository::class);
+                $citizens = $repository->getAll();
+
+                $records = [];
+                foreach ($citizens as $citizen) {
+                    $uid = $citizen->getFirstAttribute('uid');
+                    $records[$uid] = [
+                        'last_name' => $citizen->getFirstAttribute('sn'),
+                        'first_name' => $citizen->getFirstAttribute('givenName'),
+                        'email' => $citizen->getFirstAttribute('mail'),
+                        'l' => $citizen->getFirstAttribute('l'),
+                        'employeNumber' => $citizen->getFirstAttribute('employeNumber'),
+                        'gosaMailQuota' => $citizen->getFirstAttribute('gosaMailQuota'),
+                    ];
+                }
+
+                return $records;
+            });
     }
 
     protected function getHeaderActions(): array
