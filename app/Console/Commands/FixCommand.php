@@ -41,9 +41,11 @@ class FixCommand extends Command
 
         $this->line('Found '.count($citizens));
         foreach ($citizens as $citizen) {
-            if (count($citizen->getAttribute('gosamailalternateaddress')) > 0) {
-                dump($citizen->getAttribute('uid'));
-                dump($citizen->getAttribute('gosamailalternateaddress'));
+            if ($citizen->getFirstAttribute('gosamailalternateaddress')) {
+                if (count($citizen->getAttribute('gosamailalternateaddress')) > 0) {
+                    dump($citizen->getAttribute('uid'));
+                    dump($citizen->getAttribute('gosamailalternateaddress'));
+                }
             }
             //   $this->line($citizen->getFirstAttribute('mail'));
         }
