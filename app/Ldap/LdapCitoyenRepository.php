@@ -3,11 +3,7 @@
 namespace App\Ldap;
 
 use App\Models\EmailDto;
-use LdapRecord\Auth\BindException;
-use LdapRecord\Configuration\DomainConfiguration;
 use LdapRecord\Connection;
-use LdapRecord\Container;
-use LdapRecord\LdapInterface;
 use LdapRecord\LdapRecordException;
 use LdapRecord\Models\Model;
 use LdapRecord\Models\ModelDoesNotExistException;
@@ -19,49 +15,6 @@ class LdapCitoyenRepository
 
     public string $sieveRoot = '/var/spool/dovecot/mail/';
 
-    public function __construct(
-        ?string $host = null,
-        ?string $dn = null,
-    ) {
-        $domain = new DomainConfiguration([
-            'hosts' => [$host ?? config('ldap.citoyen.host')],
-            'base_dn' => $dn ?? config('ldap.citoyen.base_dn'),
-            'username' => $dn ?? config('ldap.citoyen.username'),
-            'password' => $dn ?? config('ldap.citoyen.password'),
-            'port' => LdapInterface::PORT,
-            'protocol' => 'ldap://',
-            'use_ssl' => false,
-            'use_tls' => false,
-            'use_sasl' => false,
-            'version' => 3,
-            'timeout' => 5,
-            'follow_referrals' => false,
-        ]);
-
-        $this->connection = new Connection($domain);
-    }
-
-    /**
-     * @throws \Exception
-     */
-    public function connect(): void
-    {
-        if (! $this->connection->isConnected()) {
-            if (! Container::hasConnection('default')) {
-                Container::addConnection($this->connection);
-            }
-
-            try {
-                $this->connection->connect();
-            } catch (BindException|LdapRecordException  $exception) {
-                throw new \Exception(
-                    'Citoyen connection failed: '.$exception->getMessage().
-                    ' '.$this->connection->getConfiguration()->get('hosts')[0]
-                );
-            }
-        }
-    }
-
     /**
      * @return Collection<Model>
      *
@@ -69,8 +22,6 @@ class LdapCitoyenRepository
      */
     public function getAll(): Collection
     {
-        $this->connect();
-
         return CitoyenLdap::get();
     }
 
@@ -79,17 +30,14 @@ class LdapCitoyenRepository
      */
     public function getEntry(string $uid): ?Model
     {
-        $this->connect();
-
         return CitoyenLdap::query()->findBy('uid', $uid);
     }
+
     /**
      * @throws \Exception
      */
     public function getEntryByEmail(string $email): ?Model
     {
-        $this->connect();
-
         return CitoyenLdap::query()->findBy('mail', $email);
     }
 
@@ -100,8 +48,6 @@ class LdapCitoyenRepository
      */
     public function checkExist(string $nom): Collection
     {
-        $this->connect();
-
         return CitoyenLdap::query()
             ->orwhere('gosaMailAlternateAddress', '=', $nom)
             ->orWhere('mail', '=', $nom)
@@ -118,8 +64,6 @@ class LdapCitoyenRepository
      */
     public function search(string $nom): Collection|array
     {
-        $this->connect();
-
         return CitoyenLdap::query()
             ->orWhere('uid', 'contains', $nom)
             ->orWhere('mail', 'contains', $nom)
@@ -132,10 +76,8 @@ class LdapCitoyenRepository
      */
     public function getLastUidNumberCitoyen(): int
     {
-        $this->connect();
-
         return $this->getAll()
-            ->map(fn ($entry) => (int) $entry->getFirstAttribute('uidNumber'))
+            ->map(fn($entry) => (int)$entry->getFirstAttribute('uidNumber'))
             ->max();
     }
 
@@ -181,12 +123,11 @@ class LdapCitoyenRepository
      */
     public function update(Model $model, EmailDto $original, EmailDto $emailDto): void
     {
-        $diff = array_diff_assoc((array) $emailDto, (array) $original);
+        $diff = array_diff_assoc((array)$emailDto, (array)$original);
         if (count($diff) > 0) {
             foreach ($diff as $key => $value) {
                 $model->setAttribute($key, $value);
             }
-            $this->connect();
             $model->save();
         }
     }
@@ -199,7 +140,6 @@ class LdapCitoyenRepository
     public function updateAlias(Model $model, iterable $alias): void
     {
         $model->setAttribute('gosaMailAlternateAddress', $alias);
-        $this->connect();
         $model->update();
     }
 
@@ -211,7 +151,6 @@ class LdapCitoyenRepository
     public function updateQuota(Model $model, int $quota): void
     {
         $model->setAttribute('gosaMailQuota', $quota);
-        $this->connect();
         $model->update();
     }
 
@@ -223,7 +162,6 @@ class LdapCitoyenRepository
     public function changePassword(Model $model, string $clearPassword): void
     {
         $model->setAttribute('userPassword', [CitoyenLdap::cryptPassword($clearPassword)]);
-        $this->connect();
         $model->update();
     }
 
@@ -235,7 +173,6 @@ class LdapCitoyenRepository
     public function restorePassword(Model $model, string $cryptedPassword): void
     {
         $model->setAttribute('userPassword', [$cryptedPassword]);
-        $this->connect();
         $model->update();
     }
 
@@ -251,13 +188,13 @@ class LdapCitoyenRepository
     }
 
     /**
-     * @param  string  $mail
+     * @param string $mail
      * @return []
      */
     public function checkMailExist($mail, $list = false): array|bool
     {
         $check = [];
-        $results = $this->ldapCitoyen->checkExist($mail);
+        $results = $this->checkExist($mail);
         $count = $results->count();
 
         if ($count > 0) {
@@ -272,7 +209,7 @@ class LdapCitoyenRepository
         /**
          * Staff.
          */
-        $resultStaffs = $this->ldapEmploye->checkExist($mail);
+        $resultStaffs = $this->checkExist($mail);
         $countStaff = $resultStaffs->count();
 
         if ($countStaff > 0) {
@@ -288,7 +225,7 @@ class LdapCitoyenRepository
          * Lors creation on ne veut pas verifier si existe
          */
         if ($list) {
-            $resultLists = $this->ldapEmploye->checkExist($mail);
+            $resultLists = $this->checkExist($mail);
             $countList = $resultLists->count();
 
             if ($countList > 0) {
@@ -306,8 +243,8 @@ class LdapCitoyenRepository
     /**
      * Retourne tous les mail d'un tableau de entries.
      *
-     * @param  Model[]  $entries
-     * @param  bool  $getAlternates
+     * @param Model[] $entries
+     * @param bool $getAlternates
      * @return []
      */
     public function getAllEmails(iterable $entries, $getAlternates = true, $server = 'mail'): array
