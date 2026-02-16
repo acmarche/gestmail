@@ -75,9 +75,9 @@ class QuotaCommand extends Command
         );
 
         try {
-            $quotaInKb = (int) $quota * 1024;
-            $this->ldapCitoyenRepository->updateQuota($entry, $quotaInKb);
-            $this->info("Quota changed to {$quota} MB ({$quotaInKb} KB)");
+            $quotaInMb = (int) $quota;// * 1024;
+            $this->ldapCitoyenRepository->updateQuota($entry, $quotaInMb);
+            $this->info("Quota changed to {$quotaInMb} MB");
 
             return \Symfony\Component\Console\Command\Command::SUCCESS;
         } catch (\Exception|ModelDoesNotExistException|LdapRecordException $e) {
