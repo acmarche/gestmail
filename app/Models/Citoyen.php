@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class Citoyen extends Model
 {
-    /** @use HasFactory<\Database\Factories\CitoyenFactory> */
     use HasFactory;
 
     protected $fillable = [
@@ -17,7 +16,7 @@ class Citoyen extends Model
         'sn',
         'l',
         'email',
-        'uuid',
+        'uid',
         'postalAddress',
         'employeeNumber',
         'postalCode',
@@ -28,20 +27,18 @@ class Citoyen extends Model
         'gosaMailAlternateAddress',
     ];
 
-    public static function generateDataFromLdap(CitoyenLdap $userLdap, string $username): array
+    public static function generateDataFromLdap(CitoyenLdap $userLdap): array
     {
         $email = $userLdap->getFirstAttribute('mail');
 
         return [
-            'givenname' => $userLdap->getFirstAttribute('givenname'),
+            'givenName' => $userLdap->getFirstAttribute('givenName'),
             'sn' => $userLdap->getFirstAttribute('sn'),
             'email' => $email,
-            'uuid' => self::getUuidFromIntranetDb($username),
             'dn' => $userLdap->getDn(),
             'cn' => $userLdap->getFirstAttribute('cn'),
             'uid' => $userLdap->getFirstAttribute('uid'),
             'mail' => $userLdap->getFirstAttribute('mail'),
-            'givenName' => $userLdap->getFirstAttribute('givenName'),
             'postalAddress' => $userLdap->getFirstAttribute('postalAddress'),
             'postalCode' => $userLdap->getFirstAttribute('postalCode'),
             'l' => $userLdap->getFirstAttribute('l'),

@@ -13,12 +13,10 @@ final class UserHandler
      */
     public static function createCitoyenDbFromLdap(CitoyenLdap $data): ?Citoyen
     {
-        $username = $data['username'];
-        if (Citoyen::where('username', $username)->first()) {
+        if (Citoyen::where('uid', $data->getFirstAttribute('uid'))->first()) {
             throw new Exception('Utilisateur déjà existant');
         }
-        $dataUser = Citoyen::generateDataFromLdap($data, $username);
-        $dataUser['username'] = $username;
+        $dataUser = Citoyen::generateDataFromLdap($data);
         $dataUser['password'] = Str::password();
 
         return Citoyen::create($dataUser);

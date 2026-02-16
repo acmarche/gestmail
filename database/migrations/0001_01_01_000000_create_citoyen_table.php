@@ -13,13 +13,11 @@ return new class extends Migration
     {
         Schema::create('citoyens', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
             $table->string('uid')->unique();
             $table->string('dn')->unique();
             $table->string('email')->unique();
             $table->string('givenName');
             $table->string('sn');
-            $table->string('cn');
             $table->string('l');
             $table->string('postalAddress');
             $table->string('employeeNumber');
@@ -28,7 +26,7 @@ return new class extends Migration
             $table->string('homeDirectory');
             $table->string('gosaMailForwardingAddress');
             $table->string('gosaMailAlternateAddress');
-            $table->string('userPassword');
+            $table->string('userPassword')->nullable();
             $table->timestamps();
         });
 

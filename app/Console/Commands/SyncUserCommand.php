@@ -61,7 +61,7 @@ final class SyncUserCommand extends Command
 
     private function updateUser(Citoyen $citoyen, mixed $citoyenLdap): void
     {
-        $citoyen->update(Citoyen::generateDataFromLdap($citoyenLdap, $citoyen->uid));
+        $citoyen->update(Citoyen::generateDataFromLdap($citoyenLdap));
     }
 
     private function removeOldUsers(): void
