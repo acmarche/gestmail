@@ -1,11 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Console\Commands;
 
 use App\Ldap\LdapCitoyenRepository;
+use Exception;
 use Illuminate\Console\Command;
 
-class FixCommand extends Command
+final class FixCommand extends Command
 {
     /**
      * The name and signature of the console command.
@@ -33,22 +36,24 @@ class FixCommand extends Command
     {
         try {
             $citizens = $this->ldapCitoyenRepository->getAll();
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->error($e->getMessage());
 
             return \Symfony\Component\Console\Command\Command::FAILURE;
         }
 
         $this->line('Found '.count($citizens));
+
+        $rows = [];
         foreach ($citizens as $citizen) {
-            if ($citizen->getFirstAttribute('gosamailalternateaddress')) {
-                if (count($citizen->getAttribute('gosamailalternateaddress')) > 1) {
-                    dump($citizen->getFirstAttribute('uid'));
-                    dump($citizen->getAttribute('gosamailalternateaddress'));
-                }
-            }
-            //   $this->line($citizen->getFirstAttribute('mail'));
+            $alternates = $citizen->getAttribute('gosamailalternateaddress') ?? [];
+            $rows[] = [
+                $citizen->getFirstAttribute('mail'),
+                implode(', ', $alternates),
+            ];
         }
+
+        $this->table(['Email', 'Alternate Addresses'], $rows);
 
         return \Symfony\Component\Console\Command\Command::SUCCESS;
     }
