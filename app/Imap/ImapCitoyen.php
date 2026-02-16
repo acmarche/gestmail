@@ -38,7 +38,7 @@ class ImapCitoyen
             'encryption' => 'ssl',
             'username' => $username,
             'password' => $this->password,
-            'validate_cert' => true,
+            'validate_cert' => false,
         ]);
 
         try {
