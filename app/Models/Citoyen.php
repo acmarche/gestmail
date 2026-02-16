@@ -11,12 +11,13 @@ class Citoyen extends Model
     use HasFactory;
 
     protected $fillable = [
-        'name',
         'givenName',
         'sn',
         'l',
         'email',
         'uid',
+        'dn',
+        'description',
         'postalAddress',
         'employeeNumber',
         'postalCode',
