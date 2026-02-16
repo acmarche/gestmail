@@ -31,19 +31,21 @@ class FixCommand extends Command
      */
     public function handle(): int
     {
-            try {
-                $citizens = $this->ldapCitoyenRepository->getAll();
-            } catch (\Exception $e) {
-                $this->error($e->getMessage());
+        try {
+            $citizens = $this->ldapCitoyenRepository->getAll();
+        } catch (\Exception $e) {
+            $this->error($e->getMessage());
 
-                return \Symfony\Component\Console\Command\Command::FAILURE;
-            }
+            return \Symfony\Component\Console\Command\Command::FAILURE;
+        }
 
-            $this->line('Found '.count($citizens));
-            foreach ($citizens as $citizen) {
+        $this->line('Found '.count($citizens));
+        foreach ($citizens as $citizen) {
+            if ($citizen->getFirstAttribute('mail') === 'maud.demoitie@marche.be') {
                 dd($citizen);
-                $this->line($citizen->getFirstAttribute('mail'));
             }
+         //   $this->line($citizen->getFirstAttribute('mail'));
+        }
 
         return \Symfony\Component\Console\Command\Command::SUCCESS;
     }
