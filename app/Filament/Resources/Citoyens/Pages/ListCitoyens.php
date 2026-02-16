@@ -36,7 +36,9 @@ final class ListCitoyens extends ListRecords
                 }
 
                 return $records;
-            });
+            })
+            ->recordAction(fn (array $record): ?string => null)
+            ->recordUrl(fn (array $record): ?string => null);
     }
 
     protected function getHeaderActions(): array
