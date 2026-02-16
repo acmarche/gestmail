@@ -43,7 +43,7 @@ class FixCommand extends Command
         foreach ($citizens as $citizen) {
             if ($citizen->getFirstAttribute('gosamailalternateaddress')) {
                 if (count($citizen->getAttribute('gosamailalternateaddress')) > 0) {
-                    dump($citizen->getAttribute('uid'));
+                    dump($citizen->getFirstAttribute('uid'));
                     dump($citizen->getAttribute('gosamailalternateaddress'));
                 }
             }
