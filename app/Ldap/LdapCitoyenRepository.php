@@ -1,24 +1,26 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Ldap;
 
 use App\Models\EmailDto;
-use LdapRecord\Connection;
+use Exception;
 use LdapRecord\LdapRecordException;
 use LdapRecord\Models\Model;
 use LdapRecord\Models\ModelDoesNotExistException;
 use LdapRecord\Query\Collection;
 
-class LdapCitoyenRepository
-{
-    public readonly Connection $connection;
+use function is_array;
 
+final class LdapCitoyenRepository
+{
     public string $sieveRoot = '/var/spool/dovecot/mail/';
 
     /**
      * @return Collection<Model>
      *
-     * @throws \Exception
+     * @throws Exception
      */
     public function getAll(): Collection
     {
@@ -26,7 +28,7 @@ class LdapCitoyenRepository
     }
 
     /**
-     * @throws \Exception
+     * @throws Exception
      */
     public function getEntry(string $uid): ?Model
     {
@@ -34,7 +36,7 @@ class LdapCitoyenRepository
     }
 
     /**
-     * @throws \Exception
+     * @throws Exception
      */
     public function getEntryByEmail(string $email): ?Model
     {
@@ -44,7 +46,7 @@ class LdapCitoyenRepository
     /**
      * @return Collection|Model[]
      *
-     * @throws \Exception
+     * @throws Exception
      */
     public function checkExist(string $nom): Collection
     {
@@ -60,7 +62,7 @@ class LdapCitoyenRepository
     /**
      * @return Collection|array|Model[]
      *
-     * @throws \Exception
+     * @throws Exception
      */
     public function search(string $nom): Collection|array
     {
@@ -72,23 +74,23 @@ class LdapCitoyenRepository
     }
 
     /**
-     * @throws \Exception
+     * @throws Exception
      */
     public function getLastUidNumberCitoyen(): int
     {
         return $this->getAll()
-            ->map(fn($entry) => (int)$entry->getFirstAttribute('uidNumber'))
+            ->map(fn ($entry) => (int) $entry->getFirstAttribute('uidNumber'))
             ->max();
     }
 
     /**
      * @throws LdapRecordException
-     * @throws \Exception
+     * @throws Exception
      */
     public function createCitizen(EmailDto $emailCitoyen): CitoyenLdap
     {
         [$uid, $domain] = explode('@', $emailCitoyen->mail);
-        $firstLetter = substr($uid, 0, 1);
+        $firstLetter = mb_substr($uid, 0, 1);
 
         $lastUidNumber = $this->getLastUidNumberCitoyen();
         $homeDirectory = $this->sieveRoot.$firstLetter.'/'.$uid;
@@ -107,7 +109,7 @@ class LdapCitoyenRepository
             $lastUidNumber,
             $emailCitoyen->gosaMailQuota,
         );
-        $dn = 'uid='.$data['uid'][0].','.$this->connection->getConfiguration()->get('base_dn');
+        $dn = 'uid='.$data['uid'][0].','.config('ldap.base_dn');
 
         $citoyenModel = new CitoyenLdap($data);
         $citoyenModel->setDn($dn);
@@ -119,11 +121,11 @@ class LdapCitoyenRepository
 
     /**
      * @throws LdapRecordException
-     * @throws \Exception
+     * @throws Exception
      */
     public function update(Model $model, EmailDto $original, EmailDto $emailDto): void
     {
-        $diff = array_diff_assoc((array)$emailDto, (array)$original);
+        $diff = array_diff_assoc((array) $emailDto, (array) $original);
         if (count($diff) > 0) {
             foreach ($diff as $key => $value) {
                 $model->setAttribute($key, $value);
@@ -135,7 +137,7 @@ class LdapCitoyenRepository
     /**
      * @throws LdapRecordException
      * @throws ModelDoesNotExistException
-     * @throws \Exception
+     * @throws Exception
      */
     public function updateAlias(Model $model, iterable $alias): void
     {
@@ -145,8 +147,8 @@ class LdapCitoyenRepository
 
     /**
      * @throws LdapRecordException
-     * @throws \LdapRecord\Models\ModelDoesNotExistException
-     * @throws \Exception
+     * @throws ModelDoesNotExistException
+     * @throws Exception
      */
     public function updateQuota(Model $model, int $quota): void
     {
@@ -156,8 +158,8 @@ class LdapCitoyenRepository
 
     /**
      * @throws LdapRecordException
-     * @throws \LdapRecord\Models\ModelDoesNotExistException
-     * @throws \Exception
+     * @throws ModelDoesNotExistException
+     * @throws Exception
      */
     public function changePassword(Model $model, string $clearPassword): void
     {
@@ -167,8 +169,8 @@ class LdapCitoyenRepository
 
     /**
      * @throws LdapRecordException
-     * @throws \LdapRecord\Models\ModelDoesNotExistException
-     * @throws \Exception
+     * @throws ModelDoesNotExistException
+     * @throws Exception
      */
     public function restorePassword(Model $model, string $cryptedPassword): void
     {
@@ -178,8 +180,8 @@ class LdapCitoyenRepository
 
     /**
      * @throws LdapRecordException
-     * @throws \LdapRecord\Models\ModelDoesNotExistException
-     * @throws \Exception
+     * @throws ModelDoesNotExistException
+     * @throws Exception
      */
     public function delete(string $uid): void
     {
@@ -188,7 +190,7 @@ class LdapCitoyenRepository
     }
 
     /**
-     * @param string $mail
+     * @param  string  $mail
      * @return []
      */
     public function checkMailExist($mail, $list = false): array|bool
@@ -243,8 +245,8 @@ class LdapCitoyenRepository
     /**
      * Retourne tous les mail d'un tableau de entries.
      *
-     * @param Model[] $entries
-     * @param bool $getAlternates
+     * @param  Model[]  $entries
+     * @param  bool  $getAlternates
      * @return []
      */
     public function getAllEmails(iterable $entries, $getAlternates = true, $server = 'mail'): array
@@ -265,7 +267,7 @@ class LdapCitoyenRepository
                     $alternates = $entry->getFirstAttribute('gosaMailAlternateAddress', []);
                 }
 
-                if (\is_array($alternates)) {
+                if (is_array($alternates)) {
                     $emails = array_merge($emails, $alternates);
                 }
             }
