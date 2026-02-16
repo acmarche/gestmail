@@ -41,7 +41,7 @@ class FixCommand extends Command
 
         $this->line('Found '.count($citizens));
         foreach ($citizens as $citizen) {
-            if ($citizen->getFirstAttribute('mail') === 'maud.demoitie@marche.be') {
+            if ($citizen->getFirstAttribute('gosamailalternateaddress')) {
                 dd($citizen);
             }
          //   $this->line($citizen->getFirstAttribute('mail'));
