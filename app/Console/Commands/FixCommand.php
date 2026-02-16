@@ -50,17 +50,11 @@ final class FixCommand extends Command
             $mail = $citizen->getFirstAttribute('mail');
             $alternates = $citizen->getAttribute('gosamailalternateaddress') ?? [];
 
-            if (count($alternates) === 1 && $alternates[0] === $mail) {
+            if (count($alternates) > 1) {
                 $citizen->setAttribute('gosamailalternateaddress', []);
                 $citizen->save();
                 $fixed++;
                 $alternates = ['(removed - same as mail)'];
-            }
-
-            if($mail == 'amaury.marchal@marche.be') {
-               $citizen->setAttribute('gosamailalternateaddress', []);
-                $citizen->save();
-                $fixed++;
             }
 
             $rows[] = [
