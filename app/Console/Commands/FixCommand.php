@@ -47,7 +47,8 @@ class FixCommand extends Command
                     dump($citizen->getAttribute('gosamailalternateaddress'));
                 }
                 if ($citizen->getFirstAttribute('uid') == 'martin.vercouter') {
-                    dd(456);
+                    $citizen->setAttribute('gosamailalternateaddress', ['martin.vercouter@marche.be']);
+                    $citizen->save();
                 }
             }
             //   $this->line($citizen->getFirstAttribute('mail'));
