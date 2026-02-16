@@ -57,7 +57,7 @@ final class FixCommand extends Command
                 $alternates = ['(removed - same as mail)'];
             }
 
-            if($mail == 'maud.demoitie@marche.be') {
+            if($mail == 'amaury.marchal@marche.be') {
                $citizen->setAttribute('gosamailalternateaddress', []);
                 $citizen->save();
                 $fixed++;
