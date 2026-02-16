@@ -4,7 +4,6 @@ namespace App\Policies;
 
 use App\Models\Citoyen;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
 class CitoyenPolicy
 {
@@ -13,15 +12,15 @@ class CitoyenPolicy
      */
     public function viewAny(User $user): bool
     {
-        return true;
+        return auth()->check();
     }
 
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, Citoyen $citoyen): bool
+    public function view(User $user, Citoyen|array $citoyen): bool
     {
-        return true;
+        return auth()->check();
     }
 
     /**
@@ -29,29 +28,29 @@ class CitoyenPolicy
      */
     public function create(User $user): bool
     {
-        return true;
+        return auth()->check();
     }
 
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user, Citoyen $citoyen): bool
+    public function update(User $user, Citoyen|array $citoyen): bool
     {
-        return true;
+        return auth()->check();
     }
 
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, Citoyen $citoyen): bool
+    public function delete(User $user, Citoyen|array $citoyen): bool
     {
-        return true;
+        return auth()->check();
     }
 
     /**
      * Determine whether the user can restore the model.
      */
-    public function restore(User $user, Citoyen $citoyen): bool
+    public function restore(User $user, Citoyen|array $citoyen): bool
     {
         return false;
     }
@@ -59,7 +58,7 @@ class CitoyenPolicy
     /**
      * Determine whether the user can permanently delete the model.
      */
-    public function forceDelete(User $user, Citoyen $citoyen): bool
+    public function forceDelete(User $user, Citoyen|array $citoyen): bool
     {
         return false;
     }
