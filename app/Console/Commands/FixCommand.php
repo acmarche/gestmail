@@ -41,10 +41,11 @@ class FixCommand extends Command
 
         $this->line('Found '.count($citizens));
         foreach ($citizens as $citizen) {
-            if ($citizen->getAttribute('gosamailalternateaddress')) {
+            if (count($citizen->getAttribute('gosamailalternateaddress')) > 0) {
+                dump($citizen->getAttribute('uid'));
                 dump($citizen->getAttribute('gosamailalternateaddress'));
             }
-         //   $this->line($citizen->getFirstAttribute('mail'));
+            //   $this->line($citizen->getFirstAttribute('mail'));
         }
 
         return \Symfony\Component\Console\Command\Command::SUCCESS;
