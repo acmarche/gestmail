@@ -11,7 +11,7 @@ class Hand extends Model
     use HasFactory;
 
     protected $fillable = [
-        'name',
+        'uid',
         'email',
         'password',
     ];
