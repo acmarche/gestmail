@@ -51,8 +51,8 @@ final class FixCommand extends Command
             $alternates = $citizen->getAttribute('gosamailalternateaddress') ?? [];
 
             if (count($alternates) > 1) {
-                $citizen->setAttribute('gosamailalternateaddress', []);
-                $citizen->save();
+                //$citizen->setAttribute('gosamailalternateaddress', []);
+                //$citizen->save();
                 $fixed++;
                 $alternates = ['(removed - same as mail)'];
             }
