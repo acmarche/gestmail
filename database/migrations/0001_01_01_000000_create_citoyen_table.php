@@ -19,7 +19,7 @@ return new class extends Migration
             $table->string('givenName')->nullable();
             $table->string('sn');
             $table->string('cn');
-            $table->string('l');
+            $table->string('l')->nullable();
             $table->string('postalAddress');
             $table->string('employeeNumber');
             $table->string('postalCode');
