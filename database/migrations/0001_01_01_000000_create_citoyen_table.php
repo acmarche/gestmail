@@ -17,12 +17,12 @@ return new class extends Migration
             $table->string('dn')->unique();
             $table->string('mail')->unique();
             $table->string('givenName')->nullable();
-            $table->string('sn');
-            $table->string('cn');
+            $table->string('sn')->nullable();
+            $table->string('cn')->nullable();
             $table->string('l')->nullable();
-            $table->string('postalAddress');
-            $table->string('employeeNumber');
-            $table->string('postalCode');
+            $table->string('postalAddress')->nullable();
+            $table->string('employeeNumber')->nullable();
+            $table->string('postalCode')->nullable();
             $table->float('gosaMailQuota');
             $table->string('homeDirectory');
             $table->string('gosaMailForwardingAddress');
