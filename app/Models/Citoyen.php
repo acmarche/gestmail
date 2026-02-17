@@ -30,12 +30,9 @@ class Citoyen extends Model
 
     public static function generateDataFromLdap(CitoyenLdap $userLdap): array
     {
-        $email = $userLdap->getFirstAttribute('mail');
-
         return [
             'givenName' => $userLdap->getFirstAttribute('givenName'),
             'sn' => $userLdap->getFirstAttribute('sn'),
-            'email' => $email,
             'dn' => $userLdap->getDn(),
             'cn' => $userLdap->getFirstAttribute('cn'),
             'uid' => $userLdap->getFirstAttribute('uid'),
