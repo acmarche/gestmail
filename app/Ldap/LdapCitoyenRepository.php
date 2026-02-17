@@ -18,7 +18,7 @@ final class LdapCitoyenRepository
     public string $sieveRoot = '/var/spool/dovecot/mail/';
 
     /**
-     * @return Collection<Model>
+     * @return Collection<CitoyenLdap>
      *
      * @throws Exception
      */

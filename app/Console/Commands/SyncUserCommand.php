@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Ldap\CitoyenLdap;
+use App\Ldap\LdapCitoyenRepository;
 use App\Ldap\UserHandler;
 use App\Models\Citoyen;
 use Illuminate\Console\Command;
@@ -27,12 +28,17 @@ final class SyncUserCommand extends Command
      */
     protected $description = 'Sync citoyens database with ldap';
 
+    public function __construct(private readonly LdapCitoyenRepository $ldapCitoyenRepository)
+    {
+        parent::__construct();
+    }
+
     /**
      * Execute the console command.
      */
     public function handle(): int
     {
-        foreach (CitoyenLdap::all() as $citoyenLdap) {
+        foreach ($this->ldapCitoyenRepository->getAll() as $citoyenLdap) {
             if (!$citoyenLdap->getFirstAttribute('mail')) {
                 continue;
             }
@@ -44,7 +50,7 @@ final class SyncUserCommand extends Command
             }
         }
 
-     //   $this->removeOldUsers();
+        //   $this->removeOldUsers();
 
         return SfCommand::SUCCESS;
     }
