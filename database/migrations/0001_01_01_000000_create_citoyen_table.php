@@ -18,6 +18,7 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->string('givenName');
             $table->string('sn');
+            $table->string('cn');
             $table->string('l');
             $table->string('postalAddress');
             $table->string('employeeNumber');
