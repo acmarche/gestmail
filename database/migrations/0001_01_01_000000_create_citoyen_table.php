@@ -28,7 +28,7 @@ return new class extends Migration
             $table->string('gosaMailForwardingAddress');
             $table->string('gosaMailAlternateAddress')->nullable();
             $table->string('userPassword')->nullable();
-            $table->string('description')->nullable();
+            $table->text('description')->nullable();
             $table->timestamps();
         });
 
