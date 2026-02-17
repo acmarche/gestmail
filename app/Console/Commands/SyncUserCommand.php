@@ -59,8 +59,8 @@ final class SyncUserCommand extends Command
     {
         try {
             $citoyen = UserHandler::createCitoyenDbFromLdap($citoyenLdap);
-            $this->info('Added'.$citoyen->uid);
-        } catch (\Exception $exception) {
+            $this->info('Added '.$citoyen->uid);
+        } catch (\Throwable $exception) {
             $this->error($exception->getMessage());
         }
     }
