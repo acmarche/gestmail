@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('uid')->unique();
             $table->string('dn')->unique();
             $table->string('mail')->unique();
-            $table->string('givenName');
+            $table->string('givenName')->nullable();
             $table->string('sn');
             $table->string('cn');
             $table->string('l');
