@@ -17,7 +17,7 @@ final class UserHandler
             throw new Exception('Utilisateur déjà existant');
         }
         $dataUser = Citoyen::generateDataFromLdap($data);
-        $dataUser['password'] = Str::password();
+        $dataUser['userPassword'] = Str::password();
 
         return Citoyen::create($dataUser);
     }

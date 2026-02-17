@@ -43,7 +43,7 @@ final class SyncUserCommand extends Command
                 continue;
             }
             $username = $citoyenLdap->getFirstAttribute('uid');
-            if (!$user = Citoyen::where('username', $username)->first()) {
+            if (!$user = Citoyen::where('uid', $username)->first()) {
                 $this->addUser($citoyenLdap);
             } else {
                 $this->updateUser($user, $citoyenLdap);
@@ -65,7 +65,7 @@ final class SyncUserCommand extends Command
         }
     }
 
-    private function updateUser(Citoyen $citoyen, mixed $citoyenLdap): void
+    private function updateUser(Citoyen $citoyen, CitoyenLdap $citoyenLdap): void
     {
         $citoyen->update(Citoyen::generateDataFromLdap($citoyenLdap));
     }
