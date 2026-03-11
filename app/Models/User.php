@@ -31,7 +31,6 @@ final class User extends Authenticatable implements FilamentUser, HasEmailAuthen
      * @var list<string>
      */
     protected $fillable = [
-        'name',
         'username',
         'first_name',
         'last_name',
@@ -48,6 +47,11 @@ final class User extends Authenticatable implements FilamentUser, HasEmailAuthen
         'password',
         'remember_token',
     ];
+
+    public function name(): string
+    {
+        return $this->last_name.' '.$this->first_name;
+    }
 
     public function canAccessPanel(Panel $panel): bool
     {
