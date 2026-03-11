@@ -11,11 +11,13 @@ use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\NavigationItem;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\Support\Enums\Platform;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -37,8 +39,8 @@ final class AdminPanelProvider extends PanelProvider
             ->multiFactorAuthentication(
                 EmailAuthentication::make(),
                 isRequired: true
-            /*AppAuthentication::make()
-                ->recoverable(),*/
+                /*AppAuthentication::make()
+                    ->recoverable(),*/
             )
             ->sidebarCollapsibleOnDesktop()
             ->resourceCreatePageRedirect('view')
@@ -54,6 +56,13 @@ final class AdminPanelProvider extends PanelProvider
                 'primary' => Color::Blue,
             ])
             ->viteTheme('resources/css/filament/admin/theme.css')
+            ->navigationItems([
+                NavigationItem::make('Webmail Citoyen')
+                    ->url('https://citoyen.marche.be', shouldOpenInNewTab: true)
+                    ->icon(Heroicon::OutlinedGlobeAlt)
+                    ->group('Informations')
+                    ->sort(1),
+            ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
@@ -76,7 +85,7 @@ final class AdminPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
-            ])->globalSearchFieldSuffix(fn(): ?string => match (Platform::detect()) {
+            ])->globalSearchFieldSuffix(fn (): ?string => match (Platform::detect()) {
                 Platform::Windows, Platform::Linux => 'CTRL + K',
                 Platform::Mac => '⌘ + K',
                 default => null,
