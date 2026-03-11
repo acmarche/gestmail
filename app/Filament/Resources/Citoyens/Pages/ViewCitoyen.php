@@ -20,6 +20,7 @@ use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Section;
 use Filament\Support\Enums\Size;
 use Filament\Support\Icons\Heroicon;
+use LdapRecord\LdapRecordException;
 
 final class ViewCitoyen extends ViewRecord
 {
@@ -41,7 +42,9 @@ final class ViewCitoyen extends ViewRecord
                     ->label('Modifier')
                     ->icon(Heroicon::Pencil),
                 $this->handAction(),
-            ])->label('Actions')
+                $this->deleteAction(),
+            ])
+                ->label('Actions')
                 ->button()
                 ->size(Size::Large)
                 ->color('secondary'),
@@ -60,7 +63,7 @@ final class ViewCitoyen extends ViewRecord
             ->schema(function (LdapCitoyenRepository $ldapCitoyenRepository): array {
                 $ldapEntry = $ldapCitoyenRepository->getEntry($this->record->uid);
 
-                if (!$ldapEntry) {
+                if (! $ldapEntry) {
                     return [
                         TextEntry::make('error')
                             ->label('Erreur')
@@ -121,7 +124,7 @@ final class ViewCitoyen extends ViewRecord
                     try {
                         $ldapEntry = $ldapCitoyenRepository->getEntry($this->record->uid);
 
-                        if (!$ldapEntry) {
+                        if (! $ldapEntry) {
                             throw new Exception('Utilisateur LDAP introuvable');
                         }
 
@@ -161,7 +164,7 @@ final class ViewCitoyen extends ViewRecord
                     try {
                         $ldapEntry = $ldapCitoyenRepository->getEntry($this->record->uid);
 
-                        if (!$ldapEntry) {
+                        if (! $ldapEntry) {
                             throw new Exception('Utilisateur LDAP introuvable');
                         }
 
@@ -207,19 +210,54 @@ final class ViewCitoyen extends ViewRecord
             });
     }
 
+    private function deleteAction(): Action
+    {
+        return Action::make('deleteCitoyen')
+            ->label('Supprimer')
+            ->icon(Heroicon::Trash)
+            ->color('danger')
+            ->requiresConfirmation()
+            ->modalHeading('Supprimer le citoyen')
+            ->modalDescription("Êtes-vous sûr de vouloir supprimer le compte de {$this->record->uid} ? Cette action supprimera l'entrée LDAP et la fiche locale.")
+            ->action(function (LdapCitoyenRepository $ldapCitoyenRepository): void {
+                try {
+                    $ldapCitoyenRepository->delete($this->record->uid);
+                    $this->record->delete();
+
+                    Notification::make()
+                        ->title('Compte supprimé avec succès')
+                        ->body("Le dossier IMAP peut être supprimé avec : rm -rI {$this->record->homeDirectory}")
+                        ->success()
+                        ->send();
+
+                    $this->redirect(CitoyenResource::getUrl());
+                } catch (Exception|LdapRecordException $e) {
+                    $error = $e->getMessage();
+                    if ($e instanceof LdapRecordException) {
+                        $error .= ' '.$e->getDetailedError()->getDiagnosticMessage();
+                    }
+
+                    Notification::make()
+                        ->title($error)
+                        ->danger()
+                        ->send();
+                }
+            });
+    }
+
     private function quotaAction(): Action
     {
         return Action::make('changeQuota')
             ->label('Changer le quota')
             ->icon(Heroicon::CircleStack)
             ->color('info')
-            ->fillForm(fn(): array => [
+            ->fillForm(fn (): array => [
                 'gosaMailQuota' => $this->record->gosaMailQuota,
             ])
             ->schema(PasswordForm::quota())
             ->action(function (array $data, CitoyenHandler $citoyenHandler): void {
                 try {
-                    $citoyenHandler->changeQuota($this->record, (int)$data['gosaMailQuota']);
+                    $citoyenHandler->changeQuota($this->record, (int) $data['gosaMailQuota']);
 
                     Notification::make()
                         ->title('Quota modifié avec succès')
