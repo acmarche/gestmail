@@ -4,18 +4,16 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Citoyens\Schemas;
 
+use App\Input\PasswordInput;
 use App\Service\EmailService;
-use App\Service\PasswordService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Illuminate\Validation\Rules\Password;
 
 final class CitoyenForm
 {
@@ -87,26 +85,12 @@ final class CitoyenForm
                     ]),
                 self::coordinates(),
                 Section::make('Compte')
-                    ->columns()
+                    ->columns(2)
+                    ->components(
+                        PasswordInput::create(),
+                    ),
+                Section::make('Divers')
                     ->components([
-                        TextInput::make('userPassword')
-                            ->label('Mot de passe')
-                            ->helperText('min 10 catactères, minuscule, majuscule et nombre')
-                            ->password()
-                            ->revealable()
-                            ->required()
-                            ->rule(Password::min(10)->letters()->mixedCase()->numbers())
-                            ->live(debounce: 500)
-                            ->afterContent(
-                                Text::make(
-                                    fn (Get $get): string => PasswordService::passwordStrengthLabel($get('userPassword'))
-                                )
-                                    ->color(
-                                        fn (Get $get): string => PasswordService::passwordStrengthColor(
-                                            $get('userPassword')
-                                        )
-                                    ),
-                            ),
                         TextInput::make('gosaMailQuota')
                             ->label('Quota mail')
                             ->numeric()
@@ -114,9 +98,6 @@ final class CitoyenForm
                             ->maxValue(4000)
                             ->default(350)
                             ->suffix('MB'),
-                    ]),
-                Section::make('Divers')
-                    ->components([
                         Textarea::make('description')
                             ->label('Description')
                             ->columnSpanFull(),

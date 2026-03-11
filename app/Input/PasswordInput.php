@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Input;
 
 use App\Service\PasswordService;
@@ -12,7 +14,7 @@ use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 
-class PasswordInput
+final class PasswordInput
 {
     public static function create(): array
     {
@@ -33,14 +35,14 @@ class PasswordInput
                             ->icon(Heroicon::Sparkles)
                             ->color('gray')
                             ->action(function (Set $schemaSet): void {
-                                $schemaSet('password', Str::password(12,symbols: false));
+                                $schemaSet('password', Str::password(12, symbols: false));
                             }),
                     ),
                 Text::make(
-                    fn(Get $get): string => PasswordService::passwordStrengthLabel($get('password'))
+                    fn (Get $get): string => PasswordService::passwordStrengthLabel($get('password'))
                 )
                     ->color(
-                        fn(Get $get): string => PasswordService::passwordStrengthColor($get('password'))
+                        fn (Get $get): string => PasswordService::passwordStrengthColor($get('password'))
                     ),
             ];
     }
