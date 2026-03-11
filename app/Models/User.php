@@ -9,6 +9,7 @@ use Database\Factories\UserFactory;
 use Filament\Auth\MultiFactor\Email\Concerns\InteractsWithEmailAuthentication;
 use Filament\Auth\MultiFactor\Email\Contracts\HasEmailAuthentication;
 use Filament\Models\Contracts\FilamentUser;
+use Filament\Models\Contracts\HasName;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -17,7 +18,7 @@ use Illuminate\Notifications\Notifiable;
 
 // , HasAppAuthentication, HasAppAuthenticationRecovery
 #[UseFactory(UserFactory::class)]
-final class User extends Authenticatable implements FilamentUser, HasEmailAuthentication
+final class User extends Authenticatable implements FilamentUser, HasEmailAuthentication, HasName
 {
     use HasFactory, Notifiable;
     use InteractsWithEmailAuthentication;
@@ -51,6 +52,11 @@ final class User extends Authenticatable implements FilamentUser, HasEmailAuthen
     public function fullName(): string
     {
         return $this->last_name.' '.$this->first_name;
+    }
+
+    public function getFilamentName(): string
+    {
+        return $this->fullName();
     }
 
     public function canAccessPanel(Panel $panel): bool
