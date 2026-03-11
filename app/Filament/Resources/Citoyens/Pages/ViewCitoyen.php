@@ -11,12 +11,14 @@ use App\Ldap\LdapCitoyenRepository;
 use App\Repository\HandRepository;
 use Exception;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Section;
+use Filament\Support\Enums\Size;
 use Filament\Support\Icons\Heroicon;
 
 final class ViewCitoyen extends ViewRecord
@@ -32,19 +34,24 @@ final class ViewCitoyen extends ViewRecord
     {
         return [
             $this->viewLdapAction(),
-            $this->quotaAction(),
-            $this->passwordAction(),
-            EditAction::make()
-                ->label('Modifier')
-                ->icon(Heroicon::Pencil),
-            $this->handAction(),
+            ActionGroup::make([
+                $this->quotaAction(),
+                $this->passwordAction(),
+                EditAction::make()
+                    ->label('Modifier')
+                    ->icon(Heroicon::Pencil),
+                $this->handAction(),
+            ])->label('Actions')
+                ->button()
+                ->size(Size::Large)
+                ->color('secondary'),
         ];
     }
 
     private function viewLdapAction(): Action
     {
         return Action::make('viewLdap')
-            ->label('Voir LDAP')
+            ->label('Voir la fiche LDAP')
             ->icon(Heroicon::Eye)
             ->color('gray')
             ->modalHeading('Entrée LDAP')
