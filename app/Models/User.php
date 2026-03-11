@@ -48,7 +48,7 @@ final class User extends Authenticatable implements FilamentUser, HasEmailAuthen
         'remember_token',
     ];
 
-    public function name(): string
+    public function fullName(): string
     {
         return $this->last_name.' '.$this->first_name;
     }

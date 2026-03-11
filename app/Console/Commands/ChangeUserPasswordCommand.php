@@ -41,9 +41,11 @@ final class ChangeUserPasswordCommand extends Command
                 }
 
                 return User::query()
-                    ->where('name', 'like', "%{$value}%")
+                    ->where('first_name', 'like', "%{$value}%")
+                    ->orWhere('last_name', 'like', "%{$value}%")
                     ->orWhere('email', 'like', "%{$value}%")
-                    ->pluck('name', 'id')
+                    ->get()
+                    ->mapWithKeys(fn (User $user) => [$user->id => $user->fullName()])
                     ->toArray();
             },
             placeholder: 'Rechercher par nom ou email...',
@@ -52,7 +54,7 @@ final class ChangeUserPasswordCommand extends Command
         $user = User::findOrFail($userId);
 
         $newPassword = password(
-            label: "Nouveau mot de passe pour {$user->name}",
+            label: "Nouveau mot de passe pour {$user->fullName()}",
             required: true,
             validate: function (string $value): ?string {
                 $validator = Validator::make(
@@ -70,7 +72,7 @@ final class ChangeUserPasswordCommand extends Command
 
         $user->update(['password' => $newPassword]);
 
-        $this->info("Mot de passe modifié pour {$user->name}.");
+        $this->info("Mot de passe modifié pour {$user->fullName()}.");
 
         return Command::SUCCESS;
     }

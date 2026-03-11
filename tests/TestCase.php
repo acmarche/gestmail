@@ -12,7 +12,7 @@ abstract class TestCase extends BaseTestCase
         parent::setUp();
 
         $this->actingAs(User::factory()->create([
-            'name' => config('app.default_user.name'),
+            'username' => config('app.default_user.username'),
             'email' => config('app.default_user.email'),
             'password' => config('app.default_user.password'),
         ]));

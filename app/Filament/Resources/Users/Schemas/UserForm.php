@@ -20,17 +20,22 @@ final class UserForm
                     ->components([
                         TextInput::make('first_name')
                             ->label('Prénom')
-                            ->required(),
+                            ->required()
+                            ->maxLength(255),
                         TextInput::make('last_name')
                             ->label('Nom')
-                            ->required(),
+                            ->required()
+                            ->maxLength(255),
                         TextInput::make('username')
                             ->label('Nom d\'utilisateur')
-                            ->required(),
+                            ->required()
+                            ->maxLength(255),
                         TextInput::make('email')
                             ->label('Email')
                             ->email()
-                            ->required(),
+                            ->required()
+                            ->maxLength(255)
+                            ->unique(ignoreRecord: true),
                     ]),
                 Section::make('Compte')
                     ->components(

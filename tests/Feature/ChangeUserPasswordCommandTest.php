@@ -6,14 +6,17 @@ use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 
 test('change user password command updates the password', function () {
-    $user = User::factory()->create(['name' => 'John Doe']);
+    $user = User::factory()->create([
+        'first_name' => 'John',
+        'last_name' => 'Doe',
+    ]);
 
-    $this->artisan('user:change-password')
+    $this->artisan('citoyen:change-password')
         ->expectsSearch('Quel utilisateur ?', search: 'John', answers: [
-            $user->id => 'John Doe',
+            $user->id => 'Doe John',
         ], answer: $user->id)
-        ->expectsQuestion("Nouveau mot de passe pour {$user->name}", 'NewPass123')
-        ->expectsOutputToContain("Mot de passe modifié pour {$user->name}")
+        ->expectsQuestion("Nouveau mot de passe pour {$user->fullName()}", 'NewPass123')
+        ->expectsOutputToContain("Mot de passe modifié pour {$user->fullName()}")
         ->assertSuccessful();
 
     $user->refresh();

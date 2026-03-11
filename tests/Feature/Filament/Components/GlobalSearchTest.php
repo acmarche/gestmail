@@ -20,9 +20,10 @@ it('can global search for users', function (string $attribute): void {
 
     UserResource::getGlobalSearchResults($record->{$attribute})
         ->each(function (GlobalSearchResult $result) use ($record): void {
-            expect($result->title)->toBe($record->name);
+            expect($result->title)->toBe($record->email);
         });
 })->with([
-    'name',
+    'first_name',
+    'last_name',
     'email',
 ]);
