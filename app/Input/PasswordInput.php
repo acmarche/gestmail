@@ -21,7 +21,7 @@ class PasswordInput
                 TextInput::make('password')
                     ->label('Mot de passe')
                     ->password()
-                    ->helperText('min 10 caractères, minuscule, majuscule et nombre')
+                    ->helperText('min 12 caractères, minuscule, majuscule et nombre')
                     ->revealable()
                     ->required(fn (string $operation): bool => $operation === 'create')
                     ->dehydrated(fn (?string $state): bool => filled($state))
