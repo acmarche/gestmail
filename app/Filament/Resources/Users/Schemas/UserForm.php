@@ -24,11 +24,13 @@ final class UserForm
                         TextInput::make('last_name')
                             ->label('Nom')
                             ->required(),
+                        TextInput::make('username')
+                            ->label('Nom d\'utilisateur')
+                            ->required(),
                         TextInput::make('email')
                             ->label('Email')
                             ->email()
-                            ->required()
-                            ->columnSpanFull(),
+                            ->required(),
                     ]),
                 Section::make('Compte')
                     ->components(
