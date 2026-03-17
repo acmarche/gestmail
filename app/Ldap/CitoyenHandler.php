@@ -44,7 +44,7 @@ final class CitoyenHandler
         $emailDto->postalCode = $data['postalCode'];
         $emailDto->l = $data['l'];
         $emailDto->employeeNumber = $data['employeeNumber'];
-        $emailDto->userPassword = $data['userPassword'];
+        $emailDto->userPassword = $data['password'];
         $emailDto->gosaMailQuota = (int) ($data['gosaMailQuota'] ?? 350);
         $emailDto->description = $data['description'] ?? null;
 
