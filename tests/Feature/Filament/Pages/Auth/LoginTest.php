@@ -35,6 +35,10 @@ test('an unauthenticated user can login', function () {
 
 test('an authenticated user can access the admin panel', function () {
     $this->get('admin')
+        ->assertRedirect();
+
+    $this->followingRedirects()
+        ->get('admin')
         ->assertOk();
 });
 
