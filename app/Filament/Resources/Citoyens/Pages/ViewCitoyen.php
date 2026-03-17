@@ -89,6 +89,7 @@ final class ViewCitoyen extends ViewRecord
                     'gosaMailServer' => $ldapEntry->getFirstAttribute('gosaMailServer'),
                     'gosaMailDeliveryMode' => $ldapEntry->getFirstAttribute('gosaMailDeliveryMode'),
                     'description' => $ldapEntry->getFirstAttribute('description'),
+                    'uidNumber' => $ldapEntry->getFirstAttribute('uidNumber'),
                 ];
 
                 $entries = [];
