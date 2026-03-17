@@ -49,7 +49,7 @@ final class CreateCitoyen extends CreateRecord
             view('filament.citoyens.created-notification', [
                 'mail' => $data['mail'],
                 'uid' => $citoyen->uid,
-                'password' => $data['userPassword'],
+                'password' => $data['password'],
             ])->render(),
         );
 

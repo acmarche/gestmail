@@ -14,9 +14,7 @@ use LdapRecord\Models\ModelDoesNotExistException;
 
 final class CitoyenHandler
 {
-    public function __construct(private readonly LdapCitoyenRepository $ldapCitoyenRepository)
-    {
-    }
+    public function __construct(private readonly LdapCitoyenRepository $ldapCitoyenRepository) {}
 
     /**
      * @throws Exception
@@ -47,7 +45,7 @@ final class CitoyenHandler
         $emailDto->l = $data['l'];
         $emailDto->employeeNumber = $data['employeeNumber'];
         $emailDto->userPassword = $data['userPassword'];
-        $emailDto->gosaMailQuota = (int)($data['gosaMailQuota'] ?? 350);
+        $emailDto->gosaMailQuota = (int) ($data['gosaMailQuota'] ?? 350);
         $emailDto->description = $data['description'] ?? null;
 
         $ldapEntry = $this->ldapCitoyenRepository->createCitizen($emailDto);
@@ -58,9 +56,6 @@ final class CitoyenHandler
     }
 
     /**
-     * @param Citoyen|Model $citoyen
-     * @param CitoyenLdap $ldapEntry
-     * @return void
      * @throws LdapRecordException
      * @throws ModelDoesNotExistException
      */
@@ -85,7 +80,7 @@ final class CitoyenHandler
     {
         $ldapEntry = $this->ldapCitoyenRepository->getEntry($citoyen->uid);
 
-        if (!$ldapEntry) {
+        if (! $ldapEntry) {
             throw new Exception('Utilisateur LDAP introuvable');
         }
 
@@ -99,7 +94,7 @@ final class CitoyenHandler
     {
         $ldapEntry = $this->ldapCitoyenRepository->getEntry($citoyen->uid);
 
-        if (!$ldapEntry) {
+        if (! $ldapEntry) {
             throw new Exception('Utilisateur LDAP introuvable');
         }
 

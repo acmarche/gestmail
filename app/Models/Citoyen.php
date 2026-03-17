@@ -46,7 +46,6 @@ final class Citoyen extends Model
             'postalAddress' => $userLdap->getFirstAttribute('postalAddress'),
             'postalCode' => $userLdap->getFirstAttribute('postalCode'),
             'l' => $userLdap->getFirstAttribute('l'),
-            // 'userPassword' => $userLdap->getFirstAttribute('userPassword'),
             'userPassword' => null,
             'employeeNumber' => $userLdap->getFirstAttribute('employeeNumber'),
             'gosaMailQuota' => $userLdap->getFirstAttribute('gosaMailQuota', 250),
