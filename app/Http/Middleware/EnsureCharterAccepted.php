@@ -15,17 +15,17 @@ final class EnsureCharterAccepted
     {
         $user = Filament::auth()->user();
 
-        if (! $user || $user->charter_accepted_at) {
+        if (! $user || $user->hasCompletedOnboarding()) {
             return $next($request);
         }
 
         if (
-            $request->routeIs('filament.citoyen.pages.charter') ||
+            $request->routeIs('filament.citoyen.pages.onboarding') ||
             $request->routeIs('filament.citoyen.auth.logout')
         ) {
             return $next($request);
         }
 
-        return redirect()->route('filament.citoyen.pages.charter');
+        return redirect()->route('filament.citoyen.pages.onboarding');
     }
 }

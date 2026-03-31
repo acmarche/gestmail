@@ -40,6 +40,7 @@ final class Citoyen extends Authenticatable implements FilamentUser, HasName
         'recovery_email',
         'recovery_phone',
         'charter_accepted_at',
+        'password_changed_at',
     ];
 
     protected $hidden = [
@@ -79,6 +80,13 @@ final class Citoyen extends Authenticatable implements FilamentUser, HasName
         return mb_trim($this->givenName.' '.$this->sn);
     }
 
+    public function hasCompletedOnboarding(): bool
+    {
+        return $this->charter_accepted_at
+            && $this->password_changed_at
+            && ($this->recovery_email || $this->recovery_phone);
+    }
+
     public function getAuthPassword(): string
     {
         return '';
@@ -96,6 +104,7 @@ final class Citoyen extends Authenticatable implements FilamentUser, HasName
             'secure_connection' => 'boolean',
             'port_connection' => 'integer',
             'charter_accepted_at' => 'datetime',
+            'password_changed_at' => 'datetime',
         ];
     }
 }
