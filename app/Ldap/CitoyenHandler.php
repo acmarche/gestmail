@@ -26,6 +26,7 @@ final class CitoyenHandler
         }
         $dataUser = Citoyen::generateDataFromLdap($data);
         $dataUser['userPassword'] = Str::password();
+        $dataUser['auth_token'] = Str::random(64);
 
         return Citoyen::create($dataUser);
     }
@@ -50,9 +51,10 @@ final class CitoyenHandler
 
         $ldapEntry = $this->ldapCitoyenRepository->createCitizen($emailDto);
 
-        return Citoyen::create(
-            Citoyen::generateDataFromLdap($ldapEntry),
-        );
+        return Citoyen::create([
+            ...Citoyen::generateDataFromLdap($ldapEntry),
+            'auth_token' => Str::random(64),
+        ]);
     }
 
     /**

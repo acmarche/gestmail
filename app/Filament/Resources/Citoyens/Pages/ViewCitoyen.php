@@ -20,6 +20,7 @@ use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Section;
 use Filament\Support\Enums\Size;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Str;
 use LdapRecord\LdapRecordException;
 
 final class ViewCitoyen extends ViewRecord
@@ -38,6 +39,7 @@ final class ViewCitoyen extends ViewRecord
             ActionGroup::make([
                 $this->quotaAction(),
                 $this->passwordAction(),
+                $this->regenerateTokenAction(),
                 EditAction::make()
                     ->label('Modifier')
                     ->icon(Heroicon::Pencil),
@@ -243,6 +245,28 @@ final class ViewCitoyen extends ViewRecord
                         ->danger()
                         ->send();
                 }
+            });
+    }
+
+    private function regenerateTokenAction(): Action
+    {
+        return Action::make('regenerateToken')
+            ->label('Générer un jeton')
+            ->icon(Heroicon::Key)
+            ->color('info')
+            ->requiresConfirmation()
+            ->modalHeading('Générer un jeton personnel')
+            ->modalDescription('Un nouveau jeton sera généré pour permettre au citoyen de se connecter à l\'espace citoyen.')
+            ->action(function (): void {
+                $token = Str::random(64);
+                $this->record->update(['auth_token' => $token]);
+
+                Notification::make()
+                    ->title('Jeton généré avec succès')
+                    ->body('Jeton : '.$token)
+                    ->success()
+                    ->persistent()
+                    ->send();
             });
     }
 

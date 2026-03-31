@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Auth\CitoyenTokenProvider;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Placeholder;
 use Filament\Infolists\Components\Entry;
@@ -12,6 +13,7 @@ use Filament\Support\Concerns\Configurable;
 use Filament\Tables\Columns\Column;
 use Filament\Tables\Filters\BaseFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\ServiceProvider;
 
 final class AppServiceProvider extends ServiceProvider
@@ -23,6 +25,10 @@ final class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        Auth::provider('citoyen-token', function ($app, array $config) {
+            return new CitoyenTokenProvider;
+        });
+
         $this->configureTable();
         $this->translatableComponents();
     }

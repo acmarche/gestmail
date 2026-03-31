@@ -117,6 +117,28 @@ final class CitoyenInfolist
                                 };
                             }),
                     ]),
+                Section::make('Espace Citoyen')
+                    ->columns()
+                    ->components([
+                        TextEntry::make('auth_token')
+                            ->label('Jeton personnel')
+                            ->placeholder('Aucun jeton généré')
+                            ->copyable()
+                            ->fontFamily('mono'),
+                        TextEntry::make('auto_login_url')
+                            ->label('Lien de connexion')
+                            ->state(fn (Citoyen $record): ?string => $record->auth_token
+                                ? route('citoyen.auto-login', $record->auth_token)
+                                : null
+                            )
+                            ->placeholder('Aucun jeton généré')
+                            ->copyable()
+                            ->columnSpanFull(),
+                        TextEntry::make('charter_accepted_at')
+                            ->label('Charte acceptée le')
+                            ->placeholder('Non acceptée')
+                            ->dateTime(),
+                    ]),
                 Section::make('Divers')
                     ->components([
                         TextEntry::make('dn')
