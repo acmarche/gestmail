@@ -29,6 +29,7 @@ final class Citoyen extends Authenticatable implements FilamentUser, HasName
         'postalCode',
         'homeDirectory',
         'employeNumber',
+        'legacy_password',
         'gosaMailQuota',
         'gosaMailForwardingAddress',
         'gosaMailAlternateAddress',
@@ -46,6 +47,7 @@ final class Citoyen extends Authenticatable implements FilamentUser, HasName
     protected $hidden = [
         'auth_token',
         'remember_token',
+        'legacy_password',
     ];
 
     public static function generateDataFromLdap(CitoyenLdap $userLdap): array
@@ -67,6 +69,7 @@ final class Citoyen extends Authenticatable implements FilamentUser, HasName
             'gosaMailAlternateAddress' => $userLdap->getFirstAttribute('gosaMailAlternateAddress'),
             'homeDirectory' => $userLdap->getFirstAttribute('homeDirectory'),
             'description' => $userLdap->getFirstAttribute('description'),
+            'legacy_password' => $userLdap->getFirstAttribute('userPassword'),
         ];
     }
 
