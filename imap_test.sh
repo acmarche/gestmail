@@ -3,7 +3,7 @@
 
   HOST="localhost"
   PORT="143"           # 143 = STARTTLS/plain, 993 = implicit TLS
-  USER="**.**"       # use the full mail address if login is user@domain
+  USER="jf.test"       # use the full mail address if login is user@domain
   read -rsp "Password for ${USER}: " PASS; echo
 
   echo "== Testing IMAP login for ${USER} against ${HOST}:${PORT} =="

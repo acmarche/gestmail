@@ -85,6 +85,7 @@ final class CitoyenHandler
     {
         $citoyen->update([
             'userPassword' => DovecotPassword::hash($password),
+            'legacy_password' => null,
             'password_changed_at' => now(),
         ]);
     }
