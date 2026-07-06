@@ -75,7 +75,7 @@ final class SyncCommand extends Command
 
     private function syncLoginData(): void
     {
-        $logins = DB::connection('gestmail')->table('login')->get();
+        $logins = DB::table('login')->get();
 
         foreach ($logins as $login) {
             $citoyen = Citoyen::where('uid', $login->username)->first();
