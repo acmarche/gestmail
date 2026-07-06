@@ -26,6 +26,86 @@ So a citizen authenticates with `userPassword` once it is set, and falls back to
 migrated `legacy_password` until then. Every stored value carries its `{SCHEME}`
 prefix, so Dovecot detects the algorithm per row regardless of `default_pass_scheme`.
 
+## Dovecot configuration
+
+The reference copies of the Dovecot files live in `data/dovecot/`. They must be copied
+to `/etc/dovecot/` on the mail server for changes to take effect.
+
+### `data/dovecot/dovecot-sql.conf.ext` → `/etc/dovecot/dovecot-sql.conf.ext`
+
+The SQL passdb/userdb configuration. This is the file that had to be adapted for the
+migration. Key settings:
+
+```conf
+driver = mysql
+connect = host=localhost dbname=citizen user=root password=…
+default_pass_scheme = SSHA
+
+# passdb: prefer the new SHA512-CRYPT userPassword, fall back to the legacy hash.
+password_query = SELECT mail AS user, COALESCE(NULLIF(userPassword, ''), legacy_password) AS password \
+  FROM citoyens WHERE mail = IF('%u' LIKE '%%@%%', '%u', CONCAT('%u', '@marche.be'));
+
+# userdb: home dir + fixed uid/gid.
+user_query = SELECT homeDirectory AS home, 5000 AS uid, 5000 AS gid \
+  FROM citoyens WHERE mail = IF('%u' LIKE '%%@%%', '%u', CONCAT('%u', '@marche.be'));
+
+iterate_query = SELECT mail AS user FROM citoyens
+```
+
+What was adapted, and why:
+
+- **`password_query` → `COALESCE(NULLIF(userPassword, ''), legacy_password)`** — makes
+  Dovecot authenticate against the new `userPassword` column when it is set, and fall
+  back to the migrated `legacy_password` otherwise. `NULLIF(..., '')` guards against an
+  empty (non-null) value.
+- **Domain-optional login** — `WHERE mail = IF('%u' LIKE '%%@%%', '%u', CONCAT('%u', '@marche.be'))`
+  lets a citizen log in as either `jf.test` or `jf.test@marche.be`; when the login has
+  no `@`, `@marche.be` is appended. **Gotcha:** `%` is a Dovecot variable prefix, so a
+  literal SQL `%` must be written `%%` (hence `'%%@%%'`).
+- **`default_pass_scheme = SSHA`** — kept as a fallback only. In practice every stored
+  hash carries a `{SCHEME}` prefix (`{SSHA}`, `{SHA512-CRYPT}`, …), so Dovecot detects
+  the algorithm per row and this default is not actually used.
+
+### `data/dovecot/conf.d/auth-sql.conf.ext` → `/etc/dovecot/conf.d/auth-sql.conf.ext`
+
+Wires both `passdb` and `userdb` to the SQL config file above:
+
+```conf
+passdb {
+    driver = sql
+    args = /etc/dovecot/dovecot-sql.conf.ext
+}
+userdb {
+    driver = sql
+    args = /etc/dovecot/dovecot-sql.conf.ext
+}
+```
+
+This file must be enabled from `/etc/dovecot/conf.d/10-auth.conf` via an active
+`!include auth-sql.conf.ext` line.
+
+### Deploying a config change
+
+```bash
+sudo cp data/dovecot/dovecot-sql.conf.ext /etc/dovecot/dovecot-sql.conf.ext
+sudo chown root:root /etc/dovecot/dovecot-sql.conf.ext   # opened as root
+sudo chmod 0600 /etc/dovecot/dovecot-sql.conf.ext        # contains the DB password
+sudo doveadm reload                                      # or: systemctl reload dovecot
+```
+
+Verify without a mail client:
+
+```bash
+sudo doveadm auth test jf.test              # short login → normalized to jf.test@marche.be
+sudo doveadm auth test jf.test@marche.be
+```
+
+Generate a test `{SHA512-CRYPT}` hash for the `userPassword` column with:
+
+```bash
+doveadm pw -s SHA512-CRYPT -p 'ClearPassword'
+```
+
 ## How the SQL table is populated
 
 The table is filled from LDAP by:
