@@ -42,12 +42,14 @@ final class Citoyen extends Authenticatable implements FilamentUser, HasName
         'recovery_phone',
         'charter_accepted_at',
         'password_changed_at',
+        'userPassword',
     ];
 
     protected $hidden = [
         'auth_token',
         'remember_token',
         'legacy_password',
+        'userPassword',
     ];
 
     public static function generateDataFromLdap(CitoyenLdap $userLdap): array

@@ -6,6 +6,7 @@ namespace App\Ldap;
 
 use App\Models\Citoyen;
 use App\Models\EmailDto;
+use App\Support\DovecotPassword;
 use Exception;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -76,17 +77,16 @@ final class CitoyenHandler
     }
 
     /**
-     * @throws Exception
+     * Store the new password as SHA512-CRYPT in the citoyens table, which is
+     * the source of truth Dovecot authenticates against. This supersedes the
+     * legacy_password ({SSHA}, migrated from LDAP) for this citizen.
      */
     public function changePassword(Citoyen|Model $citoyen, string $password): void
     {
-        $ldapEntry = $this->ldapCitoyenRepository->getEntry($citoyen->uid);
-
-        if (! $ldapEntry) {
-            throw new Exception('Utilisateur LDAP introuvable');
-        }
-
-        $this->ldapCitoyenRepository->changePassword($ldapEntry, $password);
+        $citoyen->update([
+            'userPassword' => DovecotPassword::hash($password),
+            'password_changed_at' => now(),
+        ]);
     }
 
     /**
