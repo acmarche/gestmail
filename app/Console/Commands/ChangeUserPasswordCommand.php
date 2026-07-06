@@ -59,11 +59,11 @@ final class ChangeUserPasswordCommand extends Command
             validate: function (string $value): ?string {
                 $validator = Validator::make(
                     ['password' => $value],
-                    ['password' => Password::min(8)->letters()->mixedCase()->numbers()]
+                    ['password' => Password::defaults()]
                 );
 
                 if ($validator->fails()) {
-                    return 'Le mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule et un chiffre';
+                    return 'Le mot de passe doit contenir au moins 12 caractères, une majuscule, une minuscule et un chiffre';
                 }
 
                 return null;

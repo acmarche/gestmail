@@ -78,7 +78,7 @@ final class Onboarding extends Page implements HasForms
                                 ->password()
                                 ->revealable()
                                 ->helperText('min 12 caractères, minuscule, majuscule et nombre')
-                                ->rule(Password::min(12)->letters()->mixedCase()->numbers())
+                                ->rule(Password::defaults())
                                 ->required()
                                 ->confirmed(),
                             TextInput::make('new_password_confirmation')

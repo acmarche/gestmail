@@ -15,11 +15,11 @@ test('change user password command updates the password', function () {
         ->expectsSearch('Quel utilisateur ?', search: 'John', answers: [
             $user->id => 'Doe John',
         ], answer: $user->id)
-        ->expectsQuestion("Nouveau mot de passe pour {$user->fullName()}", 'NewPass123')
+        ->expectsQuestion("Nouveau mot de passe pour {$user->fullName()}", 'NewPassword123')
         ->expectsOutputToContain("Mot de passe modifié pour {$user->fullName()}")
         ->assertSuccessful();
 
     $user->refresh();
 
-    expect(Hash::check('NewPass123', $user->password))->toBeTrue();
+    expect(Hash::check('NewPassword123', $user->password))->toBeTrue();
 });

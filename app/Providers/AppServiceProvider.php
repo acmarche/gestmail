@@ -15,6 +15,7 @@ use Filament\Tables\Filters\BaseFilter;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Validation\Rules\Password;
 
 final class AppServiceProvider extends ServiceProvider
 {
@@ -31,6 +32,8 @@ final class AppServiceProvider extends ServiceProvider
 
         $this->configureTable();
         $this->translatableComponents();
+
+        Password::defaults(fn (): Password => Password::min(12)->letters()->mixedCase()->numbers());
     }
 
     private function translatableComponents(): void

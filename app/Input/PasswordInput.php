@@ -27,7 +27,7 @@ final class PasswordInput
                     ->revealable()
                     ->required(fn (string $operation): bool => $operation === 'create')
                     ->dehydrated(fn (?string $state): bool => filled($state))
-                    ->rule(Password::min(12)->letters()->mixedCase()->numbers())
+                    ->rule(Password::defaults())
                     ->live(debounce: 500)
                     ->afterContent(
                         Action::make('generatePassword')

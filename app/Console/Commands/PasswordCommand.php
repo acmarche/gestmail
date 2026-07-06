@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Ldap\CitoyenHandler;
 use App\Ldap\LdapCitoyenRepository;
+use App\Models\Citoyen;
 use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rules\Password;
-use LdapRecord\LdapRecordException;
-use LdapRecord\Models\ModelDoesNotExistException;
 
 use function Laravel\Prompts\text;
 
@@ -30,8 +30,10 @@ final class PasswordCommand extends Command
      */
     protected $description = 'Change le mot de passe du compte citoyen';
 
-    public function __construct(private readonly LdapCitoyenRepository $ldapCitoyenRepository)
-    {
+    public function __construct(
+        private readonly LdapCitoyenRepository $ldapCitoyenRepository,
+        private readonly CitoyenHandler $citoyenHandler
+    ) {
         parent::__construct();
     }
 
@@ -48,30 +50,38 @@ final class PasswordCommand extends Command
                 : "L'adresse mail n'a pas un format valide"
         );
 
+        $citoyen = Citoyen::where('mail', $mail)->first();
         try {
             $entry = $this->ldapCitoyenRepository->getEntryByEmail($mail);
         } catch (Exception $e) {
             $this->error($e->getMessage());
 
-            return \Symfony\Component\Console\Command\Command::FAILURE;
+            return self::FAILURE;
         }
+
         if (! $entry) {
             $this->error('Citizen with email '.$mail.' not found');
 
-            return \Symfony\Component\Console\Command\Command::FAILURE;
+            return self::FAILURE;
+        }
+
+        if (! $citoyen) {
+            $this->error('Citizen with email '.$mail.' not found');
+
+            return self::FAILURE;
         }
 
         $newPassword = text(
-            label: 'Nouveau mot de passe pour '.$entry->getFirstAttribute('uid'),
+            label: 'Nouveau mot de passe pour '.$citoyen->uid,
             required: true,
             validate: function (string $value) {
                 $validator = Validator::make(
                     ['password' => $value],
-                    ['password' => Password::min(8)->letters()->mixedCase()->numbers()]
+                    ['password' => Password::defaults()]
                 );
 
                 if ($validator->fails()) {
-                    return 'Le mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule et un chiffre';
+                    return 'Le mot de passe doit contenir au moins 12 caractères, une majuscule, une minuscule et un chiffre';
                 }
 
                 return null;
@@ -80,15 +90,16 @@ final class PasswordCommand extends Command
 
         try {
             $this->line('Try change password ');
+            $this->citoyenHandler->changePassword($citoyen, $newPassword);
             $this->ldapCitoyenRepository->changePassword($entry, $newPassword);
+
             $this->info('Password changed, try on https://citoyen.marche.be ');
 
-            return \Symfony\Component\Console\Command\Command::SUCCESS;
-        } catch (Exception|ModelDoesNotExistException|LdapRecordException $e) {
+            return self::SUCCESS;
+        } catch (Exception $e) {
             $this->error($e->getMessage());
 
-            return \Symfony\Component\Console\Command\Command::FAILURE;
+            return self::FAILURE;
         }
-
     }
 }
