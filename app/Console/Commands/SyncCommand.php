@@ -70,7 +70,7 @@ final class SyncCommand extends Command
 
     private function updateUser(Citoyen $citoyen, CitoyenLdap $citoyenLdap): void
     {
-        $citoyen->update(Citoyen::generateDataFromLdap($citoyenLdap));
+        $citoyen->update($citoyen->syncableDataFromLdap($citoyenLdap));
     }
 
     private function syncLoginData(): void

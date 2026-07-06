@@ -78,8 +78,11 @@ final class CitoyenHandler
 
     /**
      * Store the new password as SHA512-CRYPT in the citoyens table, which is
-     * the source of truth Dovecot authenticates against. This supersedes the
-     * legacy_password ({SSHA}, migrated from LDAP) for this citizen.
+     * the source of truth Dovecot authenticates against. The legacy_password
+     * ({SSHA}, migrated from LDAP) is cleared so it can no longer be used.
+     *
+     * SQL only. Used by the citizen self-service pages (ChangePassword,
+     * Onboarding), which do not touch LDAP.
      */
     public function changePassword(Citoyen|Model $citoyen, string $password): void
     {
@@ -88,6 +91,27 @@ final class CitoyenHandler
             'legacy_password' => null,
             'password_changed_at' => now(),
         ]);
+    }
+
+    /**
+     * Change the password on LDAP first (still authoritative while the LDAP
+     * migration is deferred), then mirror it to the SQL userPassword column.
+     *
+     * Used by the admin actions and the citoyen:password command.
+     *
+     * @throws Exception
+     * @throws LdapRecordException
+     */
+    public function changePasswordWithLdap(Citoyen|Model $citoyen, string $password): void
+    {
+        $ldapEntry = $this->ldapCitoyenRepository->getEntry($citoyen->uid);
+
+        if (! $ldapEntry) {
+            throw new Exception('Utilisateur LDAP introuvable');
+        }
+
+        $this->ldapCitoyenRepository->changePassword($ldapEntry, $password);
+        $this->changePassword($citoyen, $password);
     }
 
     /**

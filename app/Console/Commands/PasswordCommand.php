@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Ldap\CitoyenHandler;
-use App\Ldap\LdapCitoyenRepository;
 use App\Models\Citoyen;
 use Exception;
 use Illuminate\Console\Command;
@@ -30,10 +29,8 @@ final class PasswordCommand extends Command
      */
     protected $description = 'Change le mot de passe du compte citoyen';
 
-    public function __construct(
-        private readonly LdapCitoyenRepository $ldapCitoyenRepository,
-        private readonly CitoyenHandler $citoyenHandler
-    ) {
+    public function __construct(private readonly CitoyenHandler $citoyenHandler)
+    {
         parent::__construct();
     }
 
@@ -51,19 +48,6 @@ final class PasswordCommand extends Command
         );
 
         $citoyen = Citoyen::where('mail', $mail)->first();
-        try {
-            $entry = $this->ldapCitoyenRepository->getEntryByEmail($mail);
-        } catch (Exception $e) {
-            $this->error($e->getMessage());
-
-            return self::FAILURE;
-        }
-
-        if (! $entry) {
-            $this->error('Citizen with email '.$mail.' not found');
-
-            return self::FAILURE;
-        }
 
         if (! $citoyen) {
             $this->error('Citizen with email '.$mail.' not found');
@@ -74,7 +58,7 @@ final class PasswordCommand extends Command
         $newPassword = text(
             label: 'Nouveau mot de passe pour '.$citoyen->uid,
             required: true,
-            validate: function (string $value) {
+            validate: function (string $value): ?string {
                 $validator = Validator::make(
                     ['password' => $value],
                     ['password' => Password::defaults()]
@@ -90,9 +74,7 @@ final class PasswordCommand extends Command
 
         try {
             $this->line('Try change password ');
-            $this->citoyenHandler->changePassword($citoyen, $newPassword);
-            $this->ldapCitoyenRepository->changePassword($entry, $newPassword);
-
+            $this->citoyenHandler->changePasswordWithLdap($citoyen, $newPassword);
             $this->info('Password changed, try on https://citoyen.marche.be ');
 
             return self::SUCCESS;

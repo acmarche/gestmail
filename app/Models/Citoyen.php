@@ -75,6 +75,25 @@ final class Citoyen extends Authenticatable implements FilamentUser, HasName
         ];
     }
 
+    /**
+     * Build the LDAP data for a sync *update*, preserving a password that has
+     * already been migrated to SQL. Once a citizen has a userPassword, the
+     * sync must not reset it to null nor resurrect the stale legacy_password,
+     * otherwise a `citoyen:sync` run would silently revert their new password.
+     *
+     * @return array<string, mixed>
+     */
+    public function syncableDataFromLdap(CitoyenLdap $userLdap): array
+    {
+        $data = self::generateDataFromLdap($userLdap);
+
+        if ($this->userPassword !== null) {
+            unset($data['userPassword'], $data['legacy_password']);
+        }
+
+        return $data;
+    }
+
     public function canAccessPanel(Panel $panel): bool
     {
         return $panel->getId() === 'citoyen';

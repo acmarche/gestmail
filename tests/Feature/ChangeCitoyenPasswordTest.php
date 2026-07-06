@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Ldap\CitoyenHandler;
+use App\Ldap\CitoyenLdap;
 use App\Models\Citoyen;
 use App\Support\DovecotPassword;
 
@@ -32,10 +33,43 @@ test('changing the password stores a SHA512-CRYPT hash in userPassword', functio
         ->and($citoyen->password_changed_at)->not->toBeNull();
 });
 
-test('changing the password preserves the legacy_password fallback', function () {
+test('changing the password clears the legacy_password so userPassword is authoritative', function () {
     $citoyen = makeCitoyen(['legacy_password' => '{SSHA}originallegacyvalue==']);
 
     app(CitoyenHandler::class)->changePassword($citoyen, 'BrandNewPass123');
 
-    expect($citoyen->refresh()->legacy_password)->toBe('{SSHA}originallegacyvalue==');
+    expect($citoyen->refresh()->legacy_password)->toBeNull();
+});
+
+test('a sync update does not overwrite a password already migrated to userPassword', function () {
+    $citoyen = makeCitoyen([
+        'userPassword' => DovecotPassword::hash('BrandNewPass123'),
+        'legacy_password' => null,
+    ]);
+
+    $ldap = new CitoyenLdap([
+        'uid' => ['jdoe'],
+        'mail' => ['jdoe@marche.be'],
+        'userPassword' => ['{SSHA}staleldaphashvalue=='],
+    ]);
+
+    $data = $citoyen->syncableDataFromLdap($ldap);
+
+    expect($data)->not->toHaveKey('userPassword')
+        ->and($data)->not->toHaveKey('legacy_password');
+});
+
+test('a sync update still seeds legacy_password when no SQL password exists yet', function () {
+    $citoyen = makeCitoyen(['userPassword' => null]);
+
+    $ldap = new CitoyenLdap([
+        'uid' => ['jdoe'],
+        'mail' => ['jdoe@marche.be'],
+        'userPassword' => ['{SSHA}freshldaphashvalue=='],
+    ]);
+
+    $data = $citoyen->syncableDataFromLdap($ldap);
+
+    expect($data['legacy_password'])->toBe('{SSHA}freshldaphashvalue==')
+        ->and($data)->toHaveKey('userPassword');
 });

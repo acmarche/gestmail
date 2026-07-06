@@ -198,7 +198,7 @@ final class ViewCitoyen extends ViewRecord
             ->schema(PasswordForm::configure())
             ->action(function (array $data, CitoyenHandler $citoyenHandler): void {
                 try {
-                    $citoyenHandler->changePassword($this->record, $data['password']);
+                    $citoyenHandler->changePasswordWithLdap($this->record, $data['password']);
 
                     Notification::make()
                         ->title('Mot de passe modifié avec succès')
