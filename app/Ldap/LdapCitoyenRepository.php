@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Ldap;
 
 use App\Models\EmailDto;
+use Carbon\CarbonImmutable;
 use Exception;
 use Illuminate\Support\Facades\File;
 use LdapRecord\LdapRecordException;
 use LdapRecord\Models\Model;
 use LdapRecord\Models\ModelDoesNotExistException;
 use LdapRecord\Query\Collection;
+use SplFileInfo;
 
 use function is_array;
 
@@ -218,6 +220,35 @@ final class LdapCitoyenRepository
     }
 
     /**
+     * Date de dépôt du plus ancien message encore présent dans Maildir/new.
+     *
+     * Dovecot déplace les messages de new/ vers cur/ dès qu'un client IMAP
+     * ouvre la INBOX : l'ancienneté de ce message indique donc depuis combien
+     * de temps le citoyen n'a plus relevé son courrier.
+     *
+     * Retourne null si le dossier n'existe pas ou ne contient aucun message.
+     */
+    public function oldestNewMailAt(?string $homeDirectory): ?CarbonImmutable
+    {
+        $path = $this->maildirNewPath($homeDirectory);
+
+        if (! $path || ! File::isDirectory($path)) {
+            return null;
+        }
+
+        $timestamps = array_map(
+            fn (SplFileInfo $file): int => $this->deliveryTimestamp($file),
+            File::files($path)
+        );
+
+        if ($timestamps === []) {
+            return null;
+        }
+
+        return CarbonImmutable::createFromTimestamp(min($timestamps));
+    }
+
+    /**
      * @param  string  $mail
      * @return []
      */
@@ -304,5 +335,21 @@ final class LdapCitoyenRepository
         sort($emails);
 
         return $emails;
+    }
+
+    /**
+     * Date de dépôt d'un message Maildir.
+     *
+     * Le nom de fichier Maildir commence par l'horodatage unix de la remise
+     * (ex: 1712345678.M123P456.host). On retombe sur la date de modification
+     * du fichier si le nom ne suit pas cette convention.
+     */
+    private function deliveryTimestamp(SplFileInfo $file): int
+    {
+        if (preg_match('/^(\d{9,12})\./', $file->getFilename(), $matches) === 1) {
+            return (int) $matches[1];
+        }
+
+        return $file->getMTime();
     }
 }
