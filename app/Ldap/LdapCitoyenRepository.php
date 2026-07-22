@@ -6,6 +6,7 @@ namespace App\Ldap;
 
 use App\Models\EmailDto;
 use Exception;
+use Illuminate\Support\Facades\File;
 use LdapRecord\LdapRecordException;
 use LdapRecord\Models\Model;
 use LdapRecord\Models\ModelDoesNotExistException;
@@ -187,6 +188,33 @@ final class LdapCitoyenRepository
     {
         $entry = $this->getEntry($uid);
         $entry->delete();
+    }
+
+    /**
+     * Chemin du dossier Maildir contenant les messages non lus d'un citoyen.
+     */
+    public function maildirNewPath(?string $homeDirectory): ?string
+    {
+        if (! $homeDirectory) {
+            return null;
+        }
+
+        return mb_rtrim($homeDirectory, '/').'/Maildir/new';
+    }
+
+    /**
+     * Nombre de messages non lus dans le Maildir d'un citoyen.
+     * Retourne null si le dossier Maildir/new n'existe pas.
+     */
+    public function countNewMails(?string $homeDirectory): ?int
+    {
+        $path = $this->maildirNewPath($homeDirectory);
+
+        if (! $path || ! File::isDirectory($path)) {
+            return null;
+        }
+
+        return count(File::files($path));
     }
 
     /**
