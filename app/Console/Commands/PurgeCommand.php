@@ -95,8 +95,7 @@ final class PurgeCommand extends Command
             warning("Compte inactif trouvé : {$uid} ({$mail})");
             $this->line("Dernière connexion : {$login->date_connect}");
 
-            $sievePath = $this->getSievePath($uid);
-            $sieveFiles = $this->findSieveFiles($sievePath);
+            $sieveFiles = $this->ldapCitoyenRepository->findSieveFiles($uid);
 
             if (count($sieveFiles) > 0) {
                 $this->newLine();
@@ -140,29 +139,5 @@ final class PurgeCommand extends Command
         $this->info("Résumé : {$processed} comptes analysés, {$deleted} supprimés, {$skipped} conservés.");
 
         return self::SUCCESS;
-    }
-
-    /**
-     * Construit le chemin vers le dossier sieve d'un utilisateur.
-     */
-    private function getSievePath(string $uid): string
-    {
-        $firstLetter = mb_substr($uid, 0, 1);
-
-        return $this->ldapCitoyenRepository->sieveRoot.$firstLetter.'/'.$uid.'/sieve';
-    }
-
-    /**
-     * Recherche les fichiers sieve dans un répertoire.
-     *
-     * @return array<string>
-     */
-    private function findSieveFiles(string $path): array
-    {
-        if (! File::isDirectory($path)) {
-            return [];
-        }
-
-        return File::glob($path.'/*.sieve');
     }
 }

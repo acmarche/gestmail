@@ -193,6 +193,70 @@ final class LdapCitoyenRepository
     }
 
     /**
+     * Chemin du dossier contenant les scripts Sieve d'un citoyen.
+     */
+    public function sievePath(string $uid): string
+    {
+        return $this->sieveRoot.mb_substr($uid, 0, 1).'/'.$uid.'/sieve';
+    }
+
+    /**
+     * Scripts Sieve présents pour un citoyen.
+     *
+     * @return array<int, string>
+     */
+    public function findSieveFiles(string $uid): array
+    {
+        $path = $this->sievePath($uid);
+
+        if (! File::isDirectory($path)) {
+            return [];
+        }
+
+        return File::glob($path.'/*.sieve');
+    }
+
+    /**
+     * Adresses vers lesquelles les scripts Sieve du citoyen renvoient le courrier.
+     *
+     * Une redirection signifie que le compte transfère son courrier ailleurs :
+     * les messages non lus ne prouvent alors pas que le compte est abandonné.
+     *
+     * @return array<int, string>
+     */
+    public function sieveRedirects(string $uid): array
+    {
+        $addresses = [];
+
+        foreach ($this->findSieveFiles($uid) as $file) {
+            $script = $this->stripSieveComments(File::get($file));
+
+            if (preg_match_all('/\bredirect\b[^;"]*"([^"]+)"/i', $script, $matches) > 0) {
+                $addresses = array_merge($addresses, $matches[1]);
+            }
+        }
+
+        return array_values(array_unique($addresses));
+    }
+
+    /**
+     * Adresses de transfert connues pour un citoyen : redirections Sieve
+     * et attribut LDAP gosaMailForwardingAddress.
+     *
+     * @return array<int, string>
+     */
+    public function forwardingAddresses(Model $citizen): array
+    {
+        $uid = (string) $citizen->getFirstAttribute('uid');
+        $forwards = $citizen->getAttribute('gosaMailForwardingAddress') ?? [];
+
+        return array_values(array_unique([
+            ...array_map(strval(...), is_array($forwards) ? $forwards : [$forwards]),
+            ...$this->sieveRedirects($uid),
+        ]));
+    }
+
+    /**
      * Chemin du dossier Maildir contenant les messages non lus d'un citoyen.
      */
     public function maildirNewPath(?string $homeDirectory): ?string
@@ -335,6 +399,16 @@ final class LdapCitoyenRepository
         sort($emails);
 
         return $emails;
+    }
+
+    /**
+     * Retire les commentaires d'un script Sieve (# ligne et bloc slash-étoile).
+     */
+    private function stripSieveComments(string $script): string
+    {
+        $script = preg_replace('#/\*.*?\*/#s', '', $script) ?? $script;
+
+        return preg_replace('/^\s*#.*$/m', '', $script) ?? $script;
     }
 
     /**
