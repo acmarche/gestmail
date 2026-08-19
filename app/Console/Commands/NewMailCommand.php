@@ -121,9 +121,9 @@ final class NewMailCommand extends Command
     /**
      * Propose la suppression de chaque compte listé.
      *
-     * Les comptes ayant une redirection (Sieve ou gosaMailForwardingAddress)
-     * sont ignorés : ils transfèrent leur courrier ailleurs et restent donc
-     * utilisés malgré les messages non lus.
+     * Le script Sieve du compte est lu au préalable : s'il contient une
+     * redirection, le compte est ignoré, car il transfère son courrier
+     * ailleurs et reste donc utilisé malgré les messages non lus.
      *
      * @param  array<int, Model>  $citizens
      */
@@ -141,10 +141,18 @@ final class NewMailCommand extends Command
             $this->line(str_repeat('─', 60));
             $this->line("{$uid} ({$mail})");
 
-            $forwards = $this->ldapCitoyenRepository->forwardingAddresses($citizen);
+            $sieveFiles = $this->ldapCitoyenRepository->findSieveFiles($uid);
 
-            if ($forwards !== []) {
-                $this->warn('Redirection active vers : '.implode(', ', $forwards));
+            if ($sieveFiles === []) {
+                $this->line('Aucun script Sieve.');
+            } else {
+                $this->line('Script(s) Sieve : '.implode(', ', array_map(basename(...), $sieveFiles)));
+            }
+
+            $redirects = $this->ldapCitoyenRepository->sieveRedirects($uid);
+
+            if ($redirects !== []) {
+                $this->warn('Redirection active vers : '.implode(', ', $redirects));
                 $this->line('→ Compte '.$uid.' ignoré : son courrier est transféré, les messages non lus ne signifient pas qu\'il est abandonné.');
                 $redirected++;
 

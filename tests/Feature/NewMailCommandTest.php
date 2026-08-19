@@ -37,20 +37,14 @@ function writeSieveScript(string $uid, string $content): void
 /**
  * @return array{dn: array<string>, uid: array<string>, mail: array<string>, homeDirectory: array<string>}
  */
-function ldapEntry(string $uid, string $homeDirectory, array $forwards = []): array
+function ldapEntry(string $uid, string $homeDirectory): array
 {
-    $entry = [
+    return [
         'dn' => ["uid={$uid},ou=Users,ou=Citoyens,dc=marche,dc=be"],
         'uid' => [$uid],
         'mail' => [$uid.'@marche.be'],
         'homeDirectory' => [$homeDirectory],
     ];
-
-    if ($forwards !== []) {
-        $entry['gosamailforwardingaddress'] = $forwards;
-    }
-
-    return $entry;
 }
 
 /**
@@ -193,12 +187,13 @@ it('returns no redirect when the citizen has no sieve script', function (): void
     expect(app(LdapCitoyenRepository::class)->sieveRedirects('jdoe'))->toBe([]);
 });
 
-it('skips the accounts having a sieve redirect without proposing any deletion', function (): void {
+it('skips the accounts whose sieve script redirects, without proposing any deletion', function (): void {
     File::put($this->home.'/Maildir/new/'.CarbonImmutable::now()->subDays(60)->getTimestamp().'.M1P2.mail', 'body');
     writeSieveScript('jdoe', 'redirect "perso@gmail.com";');
     fakeLdapReturning([ldapEntry('jdoe', $this->home)]);
 
     $this->artisan('citoyen:new-mail', ['--delete' => true])
+        ->expectsOutputToContain('Script(s) Sieve : actif.sieve')
         ->expectsOutputToContain('Redirection active vers : perso@gmail.com')
         ->expectsOutputToContain('Compte jdoe ignoré')
         ->doesntExpectOutputToContain('Supprimer le compte')
@@ -206,13 +201,15 @@ it('skips the accounts having a sieve redirect without proposing any deletion', 
         ->assertSuccessful();
 });
 
-it('skips the accounts having a LDAP forwarding address', function (): void {
+it('proposes the deletion of an account whose sieve script does not redirect', function (): void {
     File::put($this->home.'/Maildir/new/'.CarbonImmutable::now()->subDays(60)->getTimestamp().'.M1P2.mail', 'body');
-    fakeLdapReturning([ldapEntry('jdoe', $this->home, ['ailleurs@marche.be'])]);
+    writeSieveScript('jdoe', 'require ["fileinto"]; fileinto "INBOX.Junk";');
+    fakeLdapReturning([ldapEntry('jdoe', $this->home)]);
 
     $this->artisan('citoyen:new-mail', ['--delete' => true])
-        ->expectsOutputToContain('Redirection active vers : ailleurs@marche.be')
-        ->doesntExpectOutputToContain('Supprimer le compte')
+        ->expectsOutputToContain('Script(s) Sieve : actif.sieve')
+        ->expectsOutputToContain('Aucune redirection trouvée.')
+        ->expectsConfirmation('Supprimer le compte jdoe ?', 'no')
         ->assertSuccessful();
 });
 
@@ -227,6 +224,7 @@ it('deletes the confirmed account when no redirect is set', function (): void {
         ]);
 
     $this->artisan('citoyen:new-mail', ['--delete' => true])
+        ->expectsOutputToContain('Aucun script Sieve.')
         ->expectsOutputToContain('Aucune redirection trouvée.')
         ->expectsConfirmation('Supprimer le compte jdoe ?', 'yes')
         ->expectsOutputToContain('Compte jdoe supprimé.')

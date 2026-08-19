@@ -240,23 +240,6 @@ final class LdapCitoyenRepository
     }
 
     /**
-     * Adresses de transfert connues pour un citoyen : redirections Sieve
-     * et attribut LDAP gosaMailForwardingAddress.
-     *
-     * @return array<int, string>
-     */
-    public function forwardingAddresses(Model $citizen): array
-    {
-        $uid = (string) $citizen->getFirstAttribute('uid');
-        $forwards = $citizen->getAttribute('gosaMailForwardingAddress') ?? [];
-
-        return array_values(array_unique([
-            ...array_map(strval(...), is_array($forwards) ? $forwards : [$forwards]),
-            ...$this->sieveRedirects($uid),
-        ]));
-    }
-
-    /**
      * Chemin du dossier Maildir contenant les messages non lus d'un citoyen.
      */
     public function maildirNewPath(?string $homeDirectory): ?string
