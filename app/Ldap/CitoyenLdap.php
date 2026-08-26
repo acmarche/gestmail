@@ -37,7 +37,7 @@ final class CitoyenLdap extends Model
 
     public static function convertDataToLdapSchema(
         string $uid,
-        string $first_name,
+        ?string $first_name,
         string $last_name,
         string $email,
         string $password,
@@ -49,11 +49,10 @@ final class CitoyenLdap extends Model
         int $uidNumber,
         int $quota = 250
     ): array {
-        return [
+        $data = [
             'mail' => [$email],
             'gidNumber' => [5000],
             'uidNumber' => [$uidNumber],
-            'givenName' => [$first_name],
             'employeeNumber' => [$employeNumber],
             'homeDirectory' => [$homeDirectory],
             'uid' => [$uid],
@@ -62,7 +61,7 @@ final class CitoyenLdap extends Model
             'userPassword' => [self::cryptPassword($password)],
             'l' => [$localite],
             'sn' => [$last_name],
-            'cn' => [mb_trim($first_name.' '.$last_name)],
+            'cn' => [mb_trim(($first_name ?? '').' '.$last_name)],
             'objectClass' => self::$objectClasses,
             'gosaMailDeliveryMode' => [self::$gosaMailDeliveryMode],
             'gosaMailForwardingAddress' => [$uid.'@citoyen.marche.be'],
@@ -71,11 +70,17 @@ final class CitoyenLdap extends Model
             'gosaSpamSortLevel' => [self::$gosaSpamSortLevel],
             'gosaMailQuota' => [$quota],
         ];
+
+        if (filled($first_name)) {
+            $data['givenName'] = [$first_name];
+        }
+
+        return $data;
     }
 
     public static function cryptPassword(string $password): string
     {
-        $salt = mb_substr(sha1(uniqid((string)random_int(0, mt_getrandmax()), true), true), 0, 4);
+        $salt = mb_substr(sha1(uniqid((string) random_int(0, mt_getrandmax()), true), true), 0, 4);
         $rawHash = sha1($password.$salt, true).$salt;
         $method = '{SSHA}';
 

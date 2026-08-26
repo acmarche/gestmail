@@ -39,7 +39,7 @@ final class CitoyenHandler
     public function createCitoyen(array $data): Citoyen
     {
         $emailDto = new EmailDto;
-        $emailDto->givenName = $data['givenName'];
+        $emailDto->givenName = $data['givenName'] ?? null;
         $emailDto->sn = $data['sn'];
         $emailDto->mail = $data['mail'];
         $emailDto->postalAddress = $data['postalAddress'];

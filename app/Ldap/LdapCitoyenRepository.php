@@ -77,13 +77,18 @@ final class LdapCitoyenRepository
     }
 
     /**
+     * Le premier uidNumber libre : un de plus que le plus haut présent dans
+     * l'annuaire, 1 si celui-ci est vide.
+     *
      * @throws Exception
      */
-    public function getLastUidNumberCitoyen(): int
+    public function getNextUidNumberCitoyen(): int
     {
-        return $this->getAll()
+        $highest = $this->getAll()
             ->map(fn ($entry) => (int) $entry->getFirstAttribute('uidNumber'))
             ->max();
+
+        return (int) $highest + 1;
     }
 
     /**
@@ -95,13 +100,13 @@ final class LdapCitoyenRepository
         [$uid, $domain] = explode('@', $emailCitoyen->mail);
         $firstLetter = mb_substr($uid, 0, 1);
 
-        $lastUidNumber = $this->getLastUidNumberCitoyen();
+        $uidNumber = $this->getNextUidNumberCitoyen();
         $homeDirectory = $this->sieveRoot.$firstLetter.'/'.$uid;
 
         $data = CitoyenLdap::convertDataToLdapSchema(
             $uid,
-            $emailCitoyen->sn,
             $emailCitoyen->givenName,
+            $emailCitoyen->sn,
             $emailCitoyen->mail,
             $emailCitoyen->userPassword,
             $emailCitoyen->postalAddress,
@@ -109,7 +114,7 @@ final class LdapCitoyenRepository
             $emailCitoyen->postalCode,
             $homeDirectory,
             $emailCitoyen->employeeNumber,
-            $lastUidNumber,
+            $uidNumber,
             $emailCitoyen->gosaMailQuota,
         );
         $dn = 'uid='.$data['uid'][0].','.config('ldap.connections.citoyen.base_dn');
