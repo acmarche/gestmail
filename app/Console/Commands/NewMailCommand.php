@@ -119,11 +119,13 @@ final class NewMailCommand extends Command
     }
 
     /**
-     * Propose la suppression de chaque compte listé.
+     * Supprime les comptes listés, après lecture de leur script Sieve.
      *
-     * Le script Sieve du compte est lu au préalable : s'il contient une
-     * redirection, le compte est ignoré, car il transfère son courrier
-     * ailleurs et reste donc utilisé malgré les messages non lus.
+     * Sans script Sieve, aucune redirection n'est possible : le compte est
+     * supprimé directement. Sinon, une redirection fait ignorer le compte —
+     * il transfère son courrier ailleurs et reste donc utilisé malgré les
+     * messages non lus — et l'absence de redirection déclenche une demande
+     * de confirmation.
      *
      * @param  array<int, Model>  $citizens
      */
@@ -144,24 +146,24 @@ final class NewMailCommand extends Command
             $sieveFiles = $this->ldapCitoyenRepository->findSieveFiles($uid);
 
             if ($sieveFiles === []) {
-                $this->line('Aucun script Sieve.');
+                $this->line('Aucun script Sieve : aucune redirection possible, suppression directe.');
             } else {
                 $this->line('Script(s) Sieve : '.implode(', ', array_map(basename(...), $sieveFiles)));
+
+                $redirects = $this->ldapCitoyenRepository->sieveRedirects($uid);
+
+                if ($redirects !== []) {
+                    $this->warn('Redirection active vers : '.implode(', ', $redirects));
+                    $this->line('→ Compte '.$uid.' ignoré : son courrier est transféré, les messages non lus ne signifient pas qu\'il est abandonné.');
+                    $redirected++;
+
+                    continue;
+                }
+
+                $this->line('Aucune redirection trouvée.');
             }
 
-            $redirects = $this->ldapCitoyenRepository->sieveRedirects($uid);
-
-            if ($redirects !== []) {
-                $this->warn('Redirection active vers : '.implode(', ', $redirects));
-                $this->line('→ Compte '.$uid.' ignoré : son courrier est transféré, les messages non lus ne signifient pas qu\'il est abandonné.');
-                $redirected++;
-
-                continue;
-            }
-
-            $this->line('Aucune redirection trouvée.');
-
-            $confirmed = confirm(
+            $confirmed = $sieveFiles === [] || confirm(
                 label: "Supprimer le compte {$uid} ?",
                 default: false,
             );

@@ -213,7 +213,7 @@ it('proposes the deletion of an account whose sieve script does not redirect', f
         ->assertSuccessful();
 });
 
-it('deletes the confirmed account when no redirect is set', function (): void {
+it('deletes an account without any sieve script, without asking for confirmation', function (): void {
     File::put($this->home.'/Maildir/new/'.CarbonImmutable::now()->subDays(60)->getTimestamp().'.M1P2.mail', 'body');
 
     DirectoryFake::setup('citoyen')
@@ -224,11 +224,29 @@ it('deletes the confirmed account when no redirect is set', function (): void {
         ]);
 
     $this->artisan('citoyen:new-mail', ['--delete' => true])
-        ->expectsOutputToContain('Aucun script Sieve.')
+        ->expectsOutputToContain('Aucun script Sieve : aucune redirection possible, suppression directe.')
+        ->doesntExpectOutputToContain('Supprimer le compte')
+        ->expectsOutputToContain('Compte jdoe supprimé.')
+        ->expectsOutputToContain('rm -rI '.$this->home)
+        ->expectsOutputToContain('1 compte(s) supprimé(s), 0 conservé(s), 0 ignoré(s)')
+        ->assertSuccessful();
+});
+
+it('deletes the confirmed account whose sieve script does not redirect', function (): void {
+    File::put($this->home.'/Maildir/new/'.CarbonImmutable::now()->subDays(60)->getTimestamp().'.M1P2.mail', 'body');
+    writeSieveScript('jdoe', 'require ["fileinto"]; fileinto "INBOX.Junk";');
+
+    DirectoryFake::setup('citoyen')
+        ->getLdapConnection()
+        ->expect([
+            LdapFake::operation('search')->andReturn([ldapEntry('jdoe', $this->home)]),
+            LdapFake::operation('delete')->once()->andReturn(true),
+        ]);
+
+    $this->artisan('citoyen:new-mail', ['--delete' => true])
         ->expectsOutputToContain('Aucune redirection trouvée.')
         ->expectsConfirmation('Supprimer le compte jdoe ?', 'yes')
         ->expectsOutputToContain('Compte jdoe supprimé.')
-        ->expectsOutputToContain('rm -rI '.$this->home)
         ->expectsOutputToContain('1 compte(s) supprimé(s), 0 conservé(s), 0 ignoré(s)')
         ->assertSuccessful();
 });
