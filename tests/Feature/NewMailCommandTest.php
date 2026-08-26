@@ -197,7 +197,7 @@ it('skips the accounts whose sieve script redirects, without proposing any delet
         ->expectsOutputToContain('Redirection active vers : perso@gmail.com')
         ->expectsOutputToContain('Compte jdoe ignoré')
         ->doesntExpectOutputToContain('Supprimer le compte')
-        ->expectsOutputToContain('0 compte(s) supprimé(s), 0 conservé(s), 1 ignoré(s) pour cause de redirection.')
+        ->expectsOutputToContain('0 compte(s) supprimé(s), 0 conservé(s), 1 ignoré(s) pour cause de redirection, 0 en erreur.')
         ->assertSuccessful();
 });
 
@@ -210,6 +210,8 @@ it('proposes the deletion of an account whose sieve script does not redirect', f
         ->expectsOutputToContain('Script(s) Sieve : actif.sieve')
         ->expectsOutputToContain('Aucune redirection trouvée.')
         ->expectsConfirmation('Supprimer le compte jdoe ?', 'no')
+        ->expectsOutputToContain('Suppression refusée')
+        ->expectsOutputToContain('0 compte(s) supprimé(s), 1 conservé(s), 0 ignoré(s) pour cause de redirection, 0 en erreur.')
         ->assertSuccessful();
 });
 
@@ -228,7 +230,7 @@ it('deletes an account without any sieve script, without asking for confirmation
         ->doesntExpectOutputToContain('Supprimer le compte')
         ->expectsOutputToContain('Compte jdoe supprimé.')
         ->expectsOutputToContain('rm -rI '.$this->home)
-        ->expectsOutputToContain('1 compte(s) supprimé(s), 0 conservé(s), 0 ignoré(s)')
+        ->expectsOutputToContain('1 compte(s) supprimé(s), 0 conservé(s), 0 ignoré(s) pour cause de redirection, 0 en erreur.')
         ->assertSuccessful();
 });
 
@@ -247,7 +249,7 @@ it('deletes the confirmed account whose sieve script does not redirect', functio
         ->expectsOutputToContain('Aucune redirection trouvée.')
         ->expectsConfirmation('Supprimer le compte jdoe ?', 'yes')
         ->expectsOutputToContain('Compte jdoe supprimé.')
-        ->expectsOutputToContain('1 compte(s) supprimé(s), 0 conservé(s), 0 ignoré(s)')
+        ->expectsOutputToContain('1 compte(s) supprimé(s), 0 conservé(s), 0 ignoré(s) pour cause de redirection, 0 en erreur.')
         ->assertSuccessful();
 });
 
@@ -258,4 +260,40 @@ it('does not propose any deletion without the --delete option', function (): voi
     $this->artisan('citoyen:new-mail')
         ->doesntExpectOutputToContain('Supprimer le compte')
         ->assertSuccessful();
+});
+
+it('recaps every processed account in a table at the end', function (): void {
+    $kept = sys_get_temp_dir().'/gestmail-kept-'.uniqid();
+    $redirected = sys_get_temp_dir().'/gestmail-redirected-'.uniqid();
+    foreach ([$kept, $redirected] as $home) {
+        File::makeDirectory($home.'/Maildir/new', 0755, true);
+        File::put($home.'/Maildir/new/'.CarbonImmutable::now()->subDays(60)->getTimestamp().'.M1P2.mail', 'body');
+    }
+    File::put($this->home.'/Maildir/new/'.CarbonImmutable::now()->subDays(60)->getTimestamp().'.M3P4.mail', 'body');
+
+    writeSieveScript('asmith', 'require ["fileinto"]; fileinto "INBOX.Junk";');
+    writeSieveScript('bjones', 'redirect "perso@gmail.com";');
+
+    DirectoryFake::setup('citoyen')
+        ->getLdapConnection()
+        ->expect([
+            LdapFake::operation('search')->andReturn([
+                ldapEntry('jdoe', $this->home),
+                ldapEntry('asmith', $kept),
+                ldapEntry('bjones', $redirected),
+            ]),
+            LdapFake::operation('delete')->once()->andReturn(true),
+        ]);
+
+    $this->artisan('citoyen:new-mail', ['--delete' => true])
+        ->expectsConfirmation('Supprimer le compte asmith ?', 'no')
+        ->expectsOutputToContain('statut')
+        ->expectsOutputToContain('Supprimé')
+        ->expectsOutputToContain('Conservé')
+        ->expectsOutputToContain('Ignoré')
+        ->expectsOutputToContain('1 compte(s) supprimé(s), 1 conservé(s), 1 ignoré(s) pour cause de redirection, 0 en erreur.')
+        ->assertSuccessful();
+
+    File::deleteDirectory($kept);
+    File::deleteDirectory($redirected);
 });

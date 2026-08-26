@@ -131,9 +131,8 @@ final class NewMailCommand extends Command
      */
     private function deleteCitizens(array $citizens): void
     {
-        $deleted = 0;
-        $skipped = 0;
-        $redirected = 0;
+        /** @var array<int, array{0: string, 1: string, 2: string, 3: string}> $results */
+        $results = [];
 
         foreach ($citizens as $citizen) {
             $uid = (string) $citizen->getFirstAttribute('uid');
@@ -155,7 +154,7 @@ final class NewMailCommand extends Command
                 if ($redirects !== []) {
                     $this->warn('Redirection active vers : '.implode(', ', $redirects));
                     $this->line('→ Compte '.$uid.' ignoré : son courrier est transféré, les messages non lus ne signifient pas qu\'il est abandonné.');
-                    $redirected++;
+                    $results[] = [$uid, $mail, 'Ignoré', 'Redirection vers '.implode(', ', $redirects)];
 
                     continue;
                 }
@@ -170,7 +169,7 @@ final class NewMailCommand extends Command
 
             if (! $confirmed) {
                 $this->line("→ Compte {$uid} conservé.");
-                $skipped++;
+                $results[] = [$uid, $mail, 'Conservé', 'Suppression refusée'];
 
                 continue;
             }
@@ -179,13 +178,41 @@ final class NewMailCommand extends Command
                 $this->ldapCitoyenRepository->delete($uid);
                 $this->info("✓ Compte {$uid} supprimé.");
                 $this->line('  Pour supprimer le dossier imap : rm -rI '.$citizen->getFirstAttribute('homeDirectory'));
-                $deleted++;
+                $results[] = [$uid, $mail, 'Supprimé', 'rm -rI '.$citizen->getFirstAttribute('homeDirectory')];
             } catch (Exception|LdapRecordException $exception) {
                 $this->error("Erreur lors de la suppression de {$uid} : {$exception->getMessage()}");
+                $results[] = [$uid, $mail, 'Erreur', $exception->getMessage()];
             }
         }
 
+        $this->displaySummary($results);
+    }
+
+    /**
+     * Affiche le récapitulatif des comptes traités par l'option --delete.
+     *
+     * @param  array<int, array{0: string, 1: string, 2: string, 3: string}>  $results
+     */
+    private function displaySummary(array $results): void
+    {
         $this->newLine();
-        $this->info("{$deleted} compte(s) supprimé(s), {$skipped} conservé(s), {$redirected} ignoré(s) pour cause de redirection.");
+
+        if ($results === []) {
+            $this->line('Aucun compte traité.');
+
+            return;
+        }
+
+        $this->table(['uid', 'mail', 'statut', 'détail'], $results);
+
+        $statuses = array_column($results, 2);
+        $countOf = fn (string $status): int => count(array_keys($statuses, $status, true));
+
+        $this->info(
+            $countOf('Supprimé').' compte(s) supprimé(s), '.
+            $countOf('Conservé').' conservé(s), '.
+            $countOf('Ignoré').' ignoré(s) pour cause de redirection, '.
+            $countOf('Erreur').' en erreur.'
+        );
     }
 }
