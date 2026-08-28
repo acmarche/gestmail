@@ -22,7 +22,7 @@ final class FixCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Recherche un compte citoyen suivant le mot clef';
+    protected $description = 'Liste des adresses mails ayant des alias';
 
     public function __construct(private readonly LdapCitoyenRepository $ldapCitoyenRepository)
     {
