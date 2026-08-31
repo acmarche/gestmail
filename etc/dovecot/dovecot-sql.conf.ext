@@ -80,8 +80,12 @@ connect = host=localhost dbname=citizen user=root password=mymdp
 # http://wiki2.dovecot.org/Authentication/PasswordSchemes
 #
 #default_pass_scheme = MD5
-# citoyens.legacy_password is migrated from LDAP and stored as {SSHA}base64...
-# The {SSHA} prefix lets Dovecot detect the scheme even if the default differs.
+# Every hash this application writes carries an explicit {SCHEME} prefix, so
+# Dovecot detects the algorithm per row and this default is only a fallback:
+#   citoyens.legacy_password -> {SSHA}     (migrated from LDAP)
+#   citoyens.userPassword    -> {ARGON2ID} (written by GestMail; older rows
+#                                           may still be {SHA512-CRYPT})
+# Requires a Dovecot built with ARGON2ID support -- check with `doveadm pw -l`.
 default_pass_scheme = SSHA
 
 # passdb query to retrieve the password. It can return fields:
