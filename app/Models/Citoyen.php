@@ -34,9 +34,6 @@ final class Citoyen extends Authenticatable implements FilamentUser, HasName
         'gosaMailForwardingAddress',
         'gosaMailAlternateAddress',
         'last_connection',
-        'protocol_connection',
-        'port_connection',
-        'secure_connection',
         'auth_token',
         'recovery_email',
         'recovery_phone',
@@ -125,8 +122,6 @@ final class Citoyen extends Authenticatable implements FilamentUser, HasName
     {
         return [
             'last_connection' => 'date',
-            'secure_connection' => 'boolean',
-            'port_connection' => 'integer',
             'charter_accepted_at' => 'datetime',
             'password_changed_at' => 'datetime',
         ];

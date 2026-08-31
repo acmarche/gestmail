@@ -7,7 +7,6 @@ namespace App\Filament\Resources\Citoyens\Schemas;
 use App\Imap\ImapCitoyen;
 use App\Models\Citoyen;
 use Exception;
-use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -67,14 +66,6 @@ final class CitoyenInfolist
                         TextEntry::make('last_connection')
                             ->label('Dernière connexion')
                             ->date(),
-                        TextEntry::make('protocol_connection')
-                            ->label('Protocole'),
-                        TextEntry::make('port_connection')
-                            ->label('Port')
-                            ->numeric(),
-                        IconEntry::make('secure_connection')
-                            ->label('Sécurisé')
-                            ->boolean(),
                     ]),
                 Section::make('Utilisation boîte mail')
                     ->columns()
