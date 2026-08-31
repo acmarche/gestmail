@@ -77,7 +77,7 @@ final class CitoyenHandler
     }
 
     /**
-     * Store the new password as SHA512-CRYPT in the citoyens table, which is
+     * Store the new password as Argon2id in the citoyens table, which is
      * the source of truth Dovecot authenticates against. The legacy_password
      * ({SSHA}, migrated from LDAP) is cleared so it can no longer be used.
      *

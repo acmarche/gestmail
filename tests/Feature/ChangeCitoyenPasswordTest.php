@@ -21,14 +21,14 @@ function makeCitoyen(array $attributes = []): Citoyen
     ]);
 }
 
-test('changing the password stores a SHA512-CRYPT hash in userPassword', function () {
+test('changing the password stores an Argon2id hash in userPassword', function () {
     $citoyen = makeCitoyen();
 
     app(CitoyenHandler::class)->changePassword($citoyen, 'BrandNewPass123');
 
     $citoyen->refresh();
 
-    expect($citoyen->userPassword)->toStartWith('{SHA512-CRYPT}$6$')
+    expect($citoyen->userPassword)->toStartWith('{ARGON2ID}$argon2id$')
         ->and(DovecotPassword::check('BrandNewPass123', $citoyen->userPassword))->toBeTrue()
         ->and($citoyen->password_changed_at)->not->toBeNull();
 });

@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 use App\Support\DovecotPassword;
 
-test('hash produces a scheme-prefixed SHA512-CRYPT value', function () {
+test('hash produces a scheme-prefixed Argon2id value', function () {
     $hash = DovecotPassword::hash('SuperSecret123');
 
-    expect($hash)->toStartWith('{SHA512-CRYPT}$6$');
+    expect($hash)->toStartWith('{ARGON2ID}$argon2id$')
+        ->and($hash)->toContain('m=32768,t=4,p=1');
 });
 
 test('check verifies a password against its own hash', function () {
@@ -17,9 +18,9 @@ test('check verifies a password against its own hash', function () {
         ->and(DovecotPassword::check('wrong-password', $hash))->toBeFalse();
 });
 
-test('check accepts the crypt string without the scheme prefix', function () {
+test('check accepts the hash without the scheme prefix', function () {
     $hash = DovecotPassword::hash('SuperSecret123');
-    $withoutScheme = mb_substr($hash, mb_strlen('{SHA512-CRYPT}'));
+    $withoutScheme = mb_substr($hash, mb_strlen('{ARGON2ID}'));
 
     expect(DovecotPassword::check('SuperSecret123', $withoutScheme))->toBeTrue();
 });
