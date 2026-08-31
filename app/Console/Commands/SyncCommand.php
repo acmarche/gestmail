@@ -53,7 +53,7 @@ final class SyncCommand extends Command
 
         $this->syncLoginData();
 
-        //   $this->removeOldUsers();
+        $this->removeOldUsers();
 
         return SfCommand::SUCCESS;
     }
