@@ -45,6 +45,23 @@ function makeSyncCitoyen(string $uid): Citoyen
 }
 
 /**
+ * Entrée d'annuaire complète, acceptée par la boucle d'import.
+ *
+ * @return array<string, array<string>>
+ */
+function scanLdapEntry(string $uid, string $homeDirectory): array
+{
+    return [
+        'dn' => ["uid={$uid},ou=Users,ou=Citoyens,dc=marche,dc=be"],
+        'uid' => [$uid],
+        'mail' => [$uid.'@marche.be'],
+        'homeDirectory' => [$homeDirectory],
+        'gosaMailQuota' => ['250'],
+        'gosaMailForwardingAddress' => [$uid.'@marche.be'],
+    ];
+}
+
+/**
  * `handle()` déclenche deux recherches LDAP : l'import puis la purge.
  *
  * @param  array<int, array<string, array<string>>>  $entries
@@ -139,4 +156,94 @@ it('stores the last connection date on the synced citizen', function (): void {
     $this->artisan('citoyen:sync')->assertSuccessful();
 
     expect($citoyen->refresh()->last_connection->toDateString())->toBe('2026-05-20');
+});
+
+/**
+ * Écrit un fichier de quota Maildir++ : ligne de limite puis lignes de deltas.
+ *
+ * @param  array<int, int>  $deltas
+ */
+function writeMaildirSize(string $homeDirectory, array $deltas): void
+{
+    File::ensureDirectoryExists($homeDirectory.'/Maildir');
+    File::put(
+        $homeDirectory.'/Maildir/maildirsize',
+        "10485760S,1000C\n".implode("\n", array_map(fn (int $b): string => $b.' 1', $deltas))."\n"
+    );
+}
+
+it('lists missing IMAP directories and totals the space used', function (): void {
+    $withMailbox = $this->home.'/withmail';
+    writeMaildirSize($withMailbox, [1024, 2048]);
+
+    makeSyncCitoyen('withmail')->update(['homeDirectory' => $withMailbox]);
+    makeSyncCitoyen('nomail')->update(['homeDirectory' => $this->home.'/does-not-exist']);
+
+    fakeCitoyenDirectory([
+        scanLdapEntry('withmail', $withMailbox),
+        scanLdapEntry('nomail', $this->home.'/does-not-exist'),
+    ]);
+
+    $this->artisan('citoyen:sync', ['--scan-imap' => true])
+        ->expectsOutputToContain('1 répertoire(s) IMAP introuvable(s)')
+        ->expectsOutputToContain('- nomail')
+        ->expectsOutputToContain('1 répertoire(s) IMAP analysé(s), espace occupé : 3.00 KB')
+        ->assertSuccessful();
+});
+
+it('separates directories that carry no maildirsize file', function (): void {
+    $withoutQuotaFile = $this->home.'/noquota';
+    File::makeDirectory($withoutQuotaFile.'/Maildir/cur', 0755, true);
+
+    makeSyncCitoyen('noquota')->update(['homeDirectory' => $withoutQuotaFile]);
+
+    fakeCitoyenDirectory([scanLdapEntry('noquota', $withoutQuotaFile)]);
+
+    $this->artisan('citoyen:sync', ['--scan-imap' => true])
+        ->doesntExpectOutputToContain('introuvable')
+        ->expectsOutputToContain('1 répertoire(s) IMAP sans fichier maildirsize')
+        ->expectsOutputToContain('- noquota')
+        ->expectsOutputToContain('0 répertoire(s) IMAP analysé(s)')
+        ->assertSuccessful();
+});
+
+it('says nothing about IMAP directories without the option', function (): void {
+    makeSyncCitoyen('withmail')->update(['homeDirectory' => $this->home.'/does-not-exist']);
+
+    fakeCitoyenDirectory([scanLdapEntry('withmail', $this->home.'/does-not-exist')]);
+
+    $this->artisan('citoyen:sync')
+        ->doesntExpectOutputToContain('IMAP')
+        ->assertSuccessful();
+});
+
+it('sums the maildirsize deltas, deletions included', function (): void {
+    writeMaildirSize($this->home, [5000, 3000, -2000]);
+
+    expect((new LdapCitoyenRepository)->mailboxSize($this->home))->toBe(6000);
+});
+
+it('ignores the quota definition line and malformed rows', function (): void {
+    File::put($this->home.'/Maildir/maildirsize', "10485760S,1000C\n1500 1\ngarbage\n\n500 1\n");
+
+    expect((new LdapCitoyenRepository)->mailboxSize($this->home))->toBe(2000);
+});
+
+it('never reports a negative mailbox size', function (): void {
+    writeMaildirSize($this->home, [1000, -4000]);
+
+    expect((new LdapCitoyenRepository)->mailboxSize($this->home))->toBe(0);
+});
+
+it('returns no size when maildirsize is absent', function (): void {
+    expect((new LdapCitoyenRepository)->mailboxSize($this->home))->toBeNull()
+        ->and((new LdapCitoyenRepository)->mailboxSize(null))->toBeNull();
+});
+
+it('detects whether the IMAP directory exists', function (): void {
+    $repository = new LdapCitoyenRepository;
+
+    expect($repository->hasMailbox($this->home))->toBeTrue()
+        ->and($repository->hasMailbox($this->home.'/nope'))->toBeFalse()
+        ->and($repository->hasMailbox(null))->toBeFalse();
 });

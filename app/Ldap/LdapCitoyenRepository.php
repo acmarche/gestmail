@@ -299,6 +299,54 @@ final class LdapCitoyenRepository
     }
 
     /**
+     * Indique si le répertoire IMAP d'un citoyen existe sur le serveur.
+     */
+    public function hasMailbox(?string $homeDirectory): bool
+    {
+        return (bool) $homeDirectory && File::isDirectory($homeDirectory);
+    }
+
+    /**
+     * Espace occupé, en octets, d'après le fichier de quota Maildir++.
+     *
+     * Dovecot maintient `Maildir/maildirsize` : une première ligne décrivant
+     * la limite (`10485760S,1000C`), puis une ligne par modification au format
+     * `octets messages`, les suppressions étant négatives. Le total courant est
+     * donc la somme de la première colonne de ces lignes.
+     *
+     * Le chiffre est approximatif : Dovecot n'y recalcule l'occupation réelle
+     * qu'au moment du dépassement du quota ou à l'expiration du fichier.
+     *
+     * Retourne null si le fichier n'existe pas ou n'est pas lisible.
+     */
+    public function mailboxSize(?string $homeDirectory): ?int
+    {
+        $maildir = $this->maildirPath($homeDirectory);
+
+        if (! $maildir || ! File::isReadable($path = $maildir.'/maildirsize')) {
+            return null;
+        }
+
+        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+
+        if ($lines === false || $lines === []) {
+            return null;
+        }
+
+        $bytes = 0;
+
+        foreach (array_slice($lines, 1) as $line) {
+            $columns = preg_split('/\s+/', mb_trim($line)) ?: [];
+
+            if (isset($columns[0]) && preg_match('/^-?\d+$/', $columns[0]) === 1) {
+                $bytes += (int) $columns[0];
+            }
+        }
+
+        return max($bytes, 0);
+    }
+
+    /**
      * Chemin du dossier Maildir d'un citoyen.
      */
     public function maildirPath(?string $homeDirectory): ?string
