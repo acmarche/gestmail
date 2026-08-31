@@ -249,11 +249,9 @@ final class LdapCitoyenRepository
      */
     public function maildirNewPath(?string $homeDirectory): ?string
     {
-        if (! $homeDirectory) {
-            return null;
-        }
+        $maildir = $this->maildirPath($homeDirectory);
 
-        return mb_rtrim($homeDirectory, '/').'/Maildir/new';
+        return $maildir ? $maildir.'/new' : null;
     }
 
     /**
@@ -298,6 +296,46 @@ final class LdapCitoyenRepository
         }
 
         return CarbonImmutable::createFromTimestamp(min($timestamps));
+    }
+
+    /**
+     * Chemin du dossier Maildir d'un citoyen.
+     */
+    public function maildirPath(?string $homeDirectory): ?string
+    {
+        if (! $homeDirectory) {
+            return null;
+        }
+
+        return mb_rtrim($homeDirectory, '/').'/Maildir';
+    }
+
+    /**
+     * Date de la dernière relève du courrier par le citoyen.
+     *
+     * Dovecot réécrit son journal d'index à chaque session IMAP ou POP3 : la
+     * date de modification de `dovecot.index.log` est donc la trace la plus
+     * fiable de la dernière connexion. À défaut, le dossier `cur` est daté du
+     * dernier déplacement d'un message lu depuis `new`, ce qui approche la
+     * même information.
+     *
+     * Retourne null si aucune de ces traces n'existe.
+     */
+    public function lastLoginAt(?string $homeDirectory): ?CarbonImmutable
+    {
+        $maildir = $this->maildirPath($homeDirectory);
+
+        if (! $maildir) {
+            return null;
+        }
+
+        foreach ([$maildir.'/dovecot.index.log', $maildir.'/cur'] as $path) {
+            if (File::exists($path)) {
+                return CarbonImmutable::createFromTimestamp(File::lastModified($path));
+            }
+        }
+
+        return null;
     }
 
     /**

@@ -2,28 +2,26 @@
 
 declare(strict_types=1);
 
+use App\Ldap\LdapCitoyenRepository;
 use App\Models\Citoyen;
-use Illuminate\Support\Facades\Schema;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\File;
 use LdapRecord\Testing\DirectoryFake;
 use LdapRecord\Testing\LdapFake;
 
 beforeEach(function (): void {
-    Schema::create('login', function ($table): void {
-        $table->id();
-        $table->string('username');
-        $table->dateTime('date_connect')->nullable();
-        $table->string('protocol')->nullable();
-        $table->integer('port')->nullable();
-        $table->boolean('secure')->default(false);
-    });
+    $this->home = sys_get_temp_dir().'/gestmail-sync-'.uniqid();
+    File::makeDirectory($this->home.'/Maildir', 0755, true);
 });
 
 afterEach(function (): void {
+    File::deleteDirectory($this->home);
     DirectoryFake::tearDown();
-    Schema::dropIfExists('login');
 });
 
 /**
+ * Entrée d'annuaire sans attribut `mail`, ignorée par la boucle d'import.
+ *
  * @return array{dn: array<string>, uid: array<string>}
  */
 function syncLdapEntryWithoutMail(string $uid): array
@@ -46,54 +44,99 @@ function makeSyncCitoyen(string $uid): Citoyen
     ]);
 }
 
-it('reports SQL citizens that no longer exist in the directory', function (): void {
-    $directoryUids = collect(range(1, 201))->map(fn (int $i): string => 'user'.$i);
-    $entries = $directoryUids->map(fn (string $uid): array => syncLdapEntryWithoutMail($uid))->all();
+/**
+ * `handle()` déclenche deux recherches LDAP : l'import puis la purge.
+ *
+ * @param  array<int, array<string, array<string>>>  $entries
+ */
+function fakeCitoyenDirectory(array $entries): void
+{
+    DirectoryFake::setup('citoyen')
+        ->getLdapConnection()
+        ->expect([
+            LdapFake::operation('search')->andReturn($entries),
+            LdapFake::operation('search')->andReturn($entries),
+        ]);
+}
+
+it('deletes SQL citizens that no longer exist in the directory', function (): void {
+    $entries = collect(range(1, 201))
+        ->map(fn (int $i): array => syncLdapEntryWithoutMail('user'.$i))
+        ->all();
 
     makeSyncCitoyen('user1');
     makeSyncCitoyen('ghost');
 
-    DirectoryFake::setup('citoyen')
-        ->getLdapConnection()
-        ->expect([
-            LdapFake::operation('search')->andReturn($entries),
-            LdapFake::operation('search')->andReturn($entries),
-        ]);
+    fakeCitoyenDirectory($entries);
 
     $this->artisan('citoyen:sync')
-        ->doesntExpectOutputToContain('Removed from citoyenuser1')
-        ->expectsOutputToContain('Removed from citoyenghost')
+        ->doesntExpectOutputToContain('Removed from citoyen user1')
+        ->expectsOutputToContain('Removed from citoyen ghost')
         ->assertSuccessful();
 
-    expect(Citoyen::query()->count())->toBe(2);
+    expect(Citoyen::query()->where('uid', 'ghost')->exists())->toBeFalse()
+        ->and(Citoyen::query()->where('uid', 'user1')->exists())->toBeTrue();
 });
 
-it('syncs login data onto the matching citizen', function (): void {
-    $citoyen = makeSyncCitoyen('jdoe');
+it('deletes nothing when the directory returns 200 entries or fewer', function (): void {
+    $entries = collect(range(1, 200))
+        ->map(fn (int $i): array => syncLdapEntryWithoutMail('user'.$i))
+        ->all();
 
-    DB::table('login')->insert([
-        'username' => 'jdoe',
-        'date_connect' => '2026-08-30 10:00:00',
-        'protocol' => 'imap',
-        'port' => 993,
-        'secure' => true,
-    ]);
+    makeSyncCitoyen('ghost');
 
-    DirectoryFake::setup('citoyen')
-        ->getLdapConnection()
-        ->expect([
-            LdapFake::operation('search')->andReturn([]),
-            LdapFake::operation('search')->andReturn([]),
-        ]);
+    fakeCitoyenDirectory($entries);
 
     $this->artisan('citoyen:sync')
-        ->expectsOutputToContain('Login data synced for 1 entries')
+        ->doesntExpectOutputToContain('Removed from citoyen')
         ->assertSuccessful();
 
-    $citoyen->refresh();
+    expect(Citoyen::query()->where('uid', 'ghost')->exists())->toBeTrue();
+});
 
-    expect($citoyen->protocol_connection)->toBe('imap')
-        ->and($citoyen->port_connection)->toBe(993)
-        ->and($citoyen->secure_connection)->toBeTrue()
-        ->and($citoyen->last_connection->toDateString())->toBe('2026-08-30');
+it('reads the last login from the Dovecot index log', function (): void {
+    $connectedAt = CarbonImmutable::parse('2026-07-14 09:30:00');
+    File::put($this->home.'/Maildir/dovecot.index.log', 'binary');
+    touch($this->home.'/Maildir/dovecot.index.log', $connectedAt->getTimestamp());
+
+    $lastLoginAt = (new LdapCitoyenRepository)->lastLoginAt($this->home);
+
+    expect($lastLoginAt?->getTimestamp())->toBe($connectedAt->getTimestamp());
+});
+
+it('falls back to the cur directory when no index log exists', function (): void {
+    $readAt = CarbonImmutable::parse('2026-06-01 08:00:00');
+    File::makeDirectory($this->home.'/Maildir/cur', 0755, true);
+    touch($this->home.'/Maildir/cur', $readAt->getTimestamp());
+
+    $lastLoginAt = (new LdapCitoyenRepository)->lastLoginAt($this->home);
+
+    expect($lastLoginAt?->getTimestamp())->toBe($readAt->getTimestamp());
+});
+
+it('returns no last login when the Maildir holds no Dovecot trace', function (): void {
+    expect((new LdapCitoyenRepository)->lastLoginAt($this->home))->toBeNull()
+        ->and((new LdapCitoyenRepository)->lastLoginAt(null))->toBeNull();
+});
+
+it('stores the last connection date on the synced citizen', function (): void {
+    $connectedAt = CarbonImmutable::parse('2026-05-20 12:00:00');
+    File::put($this->home.'/Maildir/dovecot.index.log', 'binary');
+    touch($this->home.'/Maildir/dovecot.index.log', $connectedAt->getTimestamp());
+
+    $citoyen = makeSyncCitoyen('jdoe');
+    $citoyen->update(['homeDirectory' => $this->home]);
+
+    fakeCitoyenDirectory([[
+        'dn' => ['uid=jdoe,ou=Users,ou=Citoyens,dc=marche,dc=be'],
+        'uid' => ['jdoe'],
+        'mail' => ['jdoe@marche.be'],
+        'homeDirectory' => [$this->home],
+        'gosaMailQuota' => ['250'],
+        'gosaMailForwardingAddress' => ['jdoe@marche.be'],
+    ]]);
+
+    $this->artisan('citoyen:sync')->assertSuccessful();
+
+    expect($citoyen->refresh()->last_connection->toDateString())->toBe('2026-05-20');
 });

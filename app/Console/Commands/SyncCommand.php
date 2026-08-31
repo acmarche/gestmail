@@ -9,7 +9,6 @@ use App\Ldap\CitoyenLdap;
 use App\Ldap\LdapCitoyenRepository;
 use App\Models\Citoyen;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 use Symfony\Component\Console\Command\Command as SfCommand;
 use Throwable;
 
@@ -27,7 +26,7 @@ final class SyncCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Sync citoyens database with ldap';
+    protected $description = 'Synchronise les comptes citoyens de l\'annuaire LDAP vers la base SQL';
 
     public function __construct(private readonly LdapCitoyenRepository $ldapCitoyenRepository)
     {
@@ -44,27 +43,33 @@ final class SyncCommand extends Command
                 continue;
             }
             $username = $citoyenLdap->getFirstAttribute('uid');
-            if (! $user = Citoyen::where('uid', $username)->first()) {
-                $this->addUser($citoyenLdap);
+            if (! $citoyen = Citoyen::where('uid', $username)->first()) {
+                $citoyen = $this->addUser($citoyenLdap);
             } else {
-                $this->updateUser($user, $citoyenLdap);
+                $this->updateUser($citoyen, $citoyenLdap);
+            }
+
+            if ($citoyen instanceof Citoyen) {
+                $this->setLastLogin($citoyen);
             }
         }
 
-        $this->syncLoginData();
-
-        $this->removeOldUsers();
+        $this->missingFromLdap();
 
         return SfCommand::SUCCESS;
     }
 
-    private function addUser(CitoyenLdap $citoyenLdap): void
+    private function addUser(CitoyenLdap $citoyenLdap): ?Citoyen
     {
         try {
             $citoyen = CitoyenHandler::createCitoyenDbFromLdap($citoyenLdap);
             $this->info('Added '.$citoyen->uid);
+
+            return $citoyen;
         } catch (Throwable $exception) {
             $this->error($exception->getMessage());
+
+            return null;
         }
     }
 
@@ -73,29 +78,21 @@ final class SyncCommand extends Command
         $citoyen->update($citoyen->syncableDataFromLdap($citoyenLdap));
     }
 
-    private function syncLoginData(): void
+    /**
+     * Enregistre la date de la dernière relève du courrier, lue depuis le Maildir.
+     */
+    private function setLastLogin(Citoyen $citoyen): void
     {
-        $logins = DB::table('login')->get();
+        $lastLoginAt = $this->ldapCitoyenRepository->lastLoginAt($citoyen->homeDirectory);
 
-        foreach ($logins as $login) {
-            $citoyen = Citoyen::where('uid', $login->username)->first();
-
-            if (! $citoyen) {
-                continue;
-            }
-
-            $citoyen->update([
-                'last_connection' => $login->date_connect,
-                'protocol_connection' => $login->protocol,
-                'port_connection' => $login->port,
-                'secure_connection' => (bool) $login->secure,
-            ]);
+        if (! $lastLoginAt) {
+            return;
         }
 
-        $this->info('Login data synced for '.$logins->count().' entries');
+        $citoyen->update(['last_connection' => $lastLoginAt]);
     }
 
-    private function removeOldUsers(): void
+    private function missingFromLdap(): void
     {
         $ldapUsernames = [];
 
