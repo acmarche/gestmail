@@ -106,8 +106,8 @@ final class SyncCommand extends Command
         if (count($ldapUsernames) > 200) {
             foreach (Citoyen::all() as $citoyen) {
                 if (! in_array($citoyen->uid, $ldapUsernames, true)) {
-                    //$user->delete();
-                    $this->info('Removed from citoyen'.$citoyen->uid);
+                    $citoyen->delete();
+                    $this->info('Removed from citoyen '.$citoyen->uid);
                 }
             }
         }
