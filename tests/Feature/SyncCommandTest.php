@@ -256,6 +256,58 @@ it('abandons the scan when the directory read looks truncated', function (): voi
         ->assertSuccessful();
 });
 
+it('deletes orphan directories with --delete and spares the others', function (): void {
+    $repository = new LdapCitoyenRepository;
+    $repository->sieveRoot = $this->home.'/mail';
+    $this->app->instance(LdapCitoyenRepository::class, $repository);
+
+    $kept = makeMailboxDirectory($this->home.'/mail', 'xavier.collart', [1024]);
+    $orphan = makeMailboxDirectory($this->home.'/mail', 'xavier.gosseye', [2048, 1024]);
+
+    fakeCitoyenDirectory(paddedDirectory(['xavier.collart']));
+
+    $this->artisan('citoyen:sync', ['--delete' => true])
+        ->expectsOutputToContain('Supprimé : '.$orphan)
+        ->expectsOutputToContain('1 répertoire(s) supprimé(s), 3.00 KB libéré(s).')
+        ->assertSuccessful();
+
+    expect(File::isDirectory($orphan))->toBeFalse()
+        ->and(File::isDirectory($kept))->toBeTrue();
+});
+
+it('deletes nothing when --scan-imap is used alone', function (): void {
+    $repository = new LdapCitoyenRepository;
+    $repository->sieveRoot = $this->home.'/mail';
+    $this->app->instance(LdapCitoyenRepository::class, $repository);
+
+    $orphan = makeMailboxDirectory($this->home.'/mail', 'xavier.gosseye');
+
+    fakeCitoyenDirectory(paddedDirectory(['xavier.collart']));
+
+    $this->artisan('citoyen:sync', ['--scan-imap' => true])
+        ->expectsOutputToContain('Aucune suppression effectuée')
+        ->assertSuccessful();
+
+    expect(File::isDirectory($orphan))->toBeTrue();
+});
+
+it('deletes nothing when the directory read looks truncated', function (): void {
+    $repository = new LdapCitoyenRepository;
+    $repository->sieveRoot = $this->home.'/mail';
+    $this->app->instance(LdapCitoyenRepository::class, $repository);
+
+    $orphan = makeMailboxDirectory($this->home.'/mail', 'orphan.account');
+
+    fakeCitoyenDirectory([scanLdapEntry('jdoe', '/nonexistent/jdoe')]);
+
+    $this->artisan('citoyen:sync', ['--delete' => true])
+        ->expectsOutputToContain('Annuaire incomplet (1 entrées)')
+        ->doesntExpectOutputToContain('Supprimé')
+        ->assertSuccessful();
+
+    expect(File::isDirectory($orphan))->toBeTrue();
+});
+
 it('says nothing about IMAP directories without the option', function (): void {
     makeSyncCitoyen('withmail')->update(['homeDirectory' => $this->home.'/does-not-exist']);
 
