@@ -172,38 +172,87 @@ function writeMaildirSize(string $homeDirectory, array $deltas): void
     );
 }
 
-it('lists missing IMAP directories and totals the space used', function (): void {
-    $withMailbox = $this->home.'/withmail';
-    writeMaildirSize($withMailbox, [1024, 2048]);
+/**
+ * Crée un répertoire IMAP `<racine>/<initiale>/<uid>/Maildir` et son fichier de quota.
+ *
+ * @param  array<int, int>  $deltas
+ */
+function makeMailboxDirectory(string $root, string $uid, array $deltas = [1024]): string
+{
+    $path = $root.'/'.mb_substr($uid, 0, 1).'/'.$uid;
+    File::ensureDirectoryExists($path.'/Maildir');
 
-    makeSyncCitoyen('withmail')->update(['homeDirectory' => $withMailbox]);
-    makeSyncCitoyen('nomail')->update(['homeDirectory' => $this->home.'/does-not-exist']);
+    if ($deltas !== []) {
+        File::put(
+            $path.'/Maildir/maildirsize',
+            "10485760S,1000C\n".implode("\n", array_map(fn (int $b): string => $b.' 1', $deltas))."\n"
+        );
+    }
 
-    fakeCitoyenDirectory([
-        scanLdapEntry('withmail', $withMailbox),
-        scanLdapEntry('nomail', $this->home.'/does-not-exist'),
-    ]);
+    return $path;
+}
+
+/**
+ * Annuaire d'au moins 200 entrées, seuil en deçà duquel l'analyse est abandonnée.
+ *
+ * @param  array<int, string>  $uids
+ * @return array<int, array<string, array<string>>>
+ */
+function paddedDirectory(array $uids): array
+{
+    $entries = array_map(fn (string $uid): array => scanLdapEntry($uid, '/nonexistent/'.$uid), $uids);
+
+    foreach (range(1, 200) as $i) {
+        $entries[] = scanLdapEntry('filler'.$i, '/nonexistent/filler'.$i);
+    }
+
+    return $entries;
+}
+
+it('lists IMAP directories that have no LDAP entry', function (): void {
+    $repository = new LdapCitoyenRepository;
+    $repository->sieveRoot = $this->home.'/mail';
+    $this->app->instance(LdapCitoyenRepository::class, $repository);
+
+    makeMailboxDirectory($this->home.'/mail', 'xavier.collart', [1024]);
+    makeMailboxDirectory($this->home.'/mail', 'xavier.gosseye', [2048, 1024]);
+
+    fakeCitoyenDirectory(paddedDirectory(['xavier.collart']));
 
     $this->artisan('citoyen:sync', ['--scan-imap' => true])
-        ->expectsOutputToContain('1 répertoire(s) IMAP introuvable(s)')
-        ->expectsOutputToContain('- nomail')
-        ->expectsOutputToContain('1 répertoire(s) IMAP analysé(s), espace occupé : 3.00 KB')
+        ->expectsOutputToContain('répertoire(s) IMAP examiné(s)')
+        ->expectsOutputToContain('xavier.gosseye')
+        ->expectsOutputToContain('1 répertoire(s) IMAP sans entrée LDAP, 3.00 KB')
         ->assertSuccessful();
 });
 
-it('separates directories that carry no maildirsize file', function (): void {
-    $withoutQuotaFile = $this->home.'/noquota';
-    File::makeDirectory($withoutQuotaFile.'/Maildir/cur', 0755, true);
+it('keeps an LDAP account whose directory exists', function (): void {
+    $repository = new LdapCitoyenRepository;
+    $repository->sieveRoot = $this->home.'/mail';
+    $this->app->instance(LdapCitoyenRepository::class, $repository);
 
-    makeSyncCitoyen('noquota')->update(['homeDirectory' => $withoutQuotaFile]);
+    makeMailboxDirectory($this->home.'/mail', 'xavier.collart');
 
-    fakeCitoyenDirectory([scanLdapEntry('noquota', $withoutQuotaFile)]);
+    fakeCitoyenDirectory(paddedDirectory(['xavier.collart']));
 
     $this->artisan('citoyen:sync', ['--scan-imap' => true])
-        ->doesntExpectOutputToContain('introuvable')
-        ->expectsOutputToContain('1 répertoire(s) IMAP sans fichier maildirsize')
-        ->expectsOutputToContain('- noquota')
-        ->expectsOutputToContain('0 répertoire(s) IMAP analysé(s)')
+        ->expectsOutputToContain('Aucun répertoire orphelin.')
+        ->doesntExpectOutputToContain('sans entrée LDAP')
+        ->assertSuccessful();
+});
+
+it('abandons the scan when the directory read looks truncated', function (): void {
+    $repository = new LdapCitoyenRepository;
+    $repository->sieveRoot = $this->home.'/mail';
+    $this->app->instance(LdapCitoyenRepository::class, $repository);
+
+    makeMailboxDirectory($this->home.'/mail', 'orphan.account');
+
+    fakeCitoyenDirectory([scanLdapEntry('jdoe', '/nonexistent/jdoe')]);
+
+    $this->artisan('citoyen:sync', ['--scan-imap' => true])
+        ->expectsOutputToContain('Annuaire incomplet (1 entrées)')
+        ->doesntExpectOutputToContain('orphan.account')
         ->assertSuccessful();
 });
 
@@ -215,6 +264,27 @@ it('says nothing about IMAP directories without the option', function (): void {
     $this->artisan('citoyen:sync')
         ->doesntExpectOutputToContain('IMAP')
         ->assertSuccessful();
+});
+
+it('collects mailbox directories grouped by initial', function (): void {
+    $root = $this->home.'/mail';
+    makeMailboxDirectory($root, 'xavier.collart');
+    makeMailboxDirectory($root, 'anne.dupont');
+    File::ensureDirectoryExists($root.'/Maildir/cur');
+    File::ensureDirectoryExists($root.'/x/not-a-mailbox');
+
+    $repository = new LdapCitoyenRepository;
+    $repository->sieveRoot = $root;
+
+    expect(array_keys($repository->allMailboxDirectories()))
+        ->toBe(['anne.dupont', 'xavier.collart']);
+});
+
+it('returns no mailbox directory when the root is absent', function (): void {
+    $repository = new LdapCitoyenRepository;
+    $repository->sieveRoot = $this->home.'/nowhere';
+
+    expect($repository->allMailboxDirectories())->toBe([]);
 });
 
 it('sums the maildirsize deltas, deletions included', function (): void {
@@ -238,12 +308,4 @@ it('never reports a negative mailbox size', function (): void {
 it('returns no size when maildirsize is absent', function (): void {
     expect((new LdapCitoyenRepository)->mailboxSize($this->home))->toBeNull()
         ->and((new LdapCitoyenRepository)->mailboxSize(null))->toBeNull();
-});
-
-it('detects whether the IMAP directory exists', function (): void {
-    $repository = new LdapCitoyenRepository;
-
-    expect($repository->hasMailbox($this->home))->toBeTrue()
-        ->and($repository->hasMailbox($this->home.'/nope'))->toBeFalse()
-        ->and($repository->hasMailbox(null))->toBeFalse();
 });

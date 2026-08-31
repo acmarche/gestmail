@@ -299,11 +299,33 @@ final class LdapCitoyenRepository
     }
 
     /**
-     * Indique si le répertoire IMAP d'un citoyen existe sur le serveur.
+     * Tous les répertoires IMAP présents sous la racine Dovecot.
+     *
+     * Les boîtes sont rangées par initiale : `<racine>/x/xavier.collart`. Seuls
+     * les répertoires contenant un sous-dossier `Maildir` sont retenus, ce qui
+     * écarte les entrées parasites de la racine sans avoir à les énumérer.
+     *
+     * @return array<string, string> uid => chemin du répertoire
      */
-    public function hasMailbox(?string $homeDirectory): bool
+    public function allMailboxDirectories(): array
     {
-        return (bool) $homeDirectory && File::isDirectory($homeDirectory);
+        if (! File::isDirectory($this->sieveRoot)) {
+            return [];
+        }
+
+        $mailboxes = [];
+
+        foreach (File::directories($this->sieveRoot) as $initial) {
+            foreach (File::directories($initial) as $path) {
+                if (File::isDirectory($path.'/Maildir')) {
+                    $mailboxes[basename($path)] = $path;
+                }
+            }
+        }
+
+        ksort($mailboxes);
+
+        return $mailboxes;
     }
 
     /**

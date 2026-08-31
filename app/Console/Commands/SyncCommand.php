@@ -16,6 +16,13 @@ use Throwable;
 final class SyncCommand extends Command
 {
     /**
+     * L'annuaire doit dépasser ce nombre d'entrées pour que sa lecture soit
+     * jugée complète : sinon ni purge SQL ni signalement d'orphelins, sous
+     * peine de désigner à la suppression des comptes parfaitement valides.
+     */
+    private const MINIMUM_LDAP_ENTRIES = 200;
+
+    /**
      * The name and signature of the console command.
      *
      * @var string
@@ -42,18 +49,16 @@ final class SyncCommand extends Command
     {
         $scanImap = (bool) $this->option('scan-imap');
 
-        /** @var array<int, string> $missingMailboxes */
-        $missingMailboxes = [];
-        /** @var array<int, string> $unmeasuredMailboxes */
-        $unmeasuredMailboxes = [];
-        $scannedMailboxes = 0;
-        $totalBytes = 0;
+        /** @var array<int, string> $ldapUids */
+        $ldapUids = [];
 
         foreach ($this->ldapCitoyenRepository->getAll() as $citoyenLdap) {
+            $username = $citoyenLdap->getFirstAttribute('uid');
+            $ldapUids[] = (string) $username;
+
             if (! $citoyenLdap->getFirstAttribute('mail')) {
                 continue;
             }
-            $username = $citoyenLdap->getFirstAttribute('uid');
             if (! $citoyen = Citoyen::where('uid', $username)->first()) {
                 $citoyen = $this->addUser($citoyenLdap);
             } else {
@@ -63,72 +68,15 @@ final class SyncCommand extends Command
             if ($citoyen instanceof Citoyen) {
                 $this->setLastLogin($citoyen);
             }
-
-            if ($scanImap) {
-                $homeDirectory = $citoyenLdap->getFirstAttribute('homeDirectory');
-                $bytes = $this->ldapCitoyenRepository->hasMailbox($homeDirectory)
-                    ? $this->ldapCitoyenRepository->mailboxSize($homeDirectory)
-                    : false;
-
-                if ($bytes === false) {
-                    $missingMailboxes[] = (string) $username;
-                } elseif ($bytes === null) {
-                    $unmeasuredMailboxes[] = (string) $username;
-                } else {
-                    $scannedMailboxes++;
-                    $totalBytes += $bytes;
-                }
-            }
         }
 
         $this->missingFromLdap();
 
         if ($scanImap) {
-            $this->reportImapScan($missingMailboxes, $unmeasuredMailboxes, $scannedMailboxes, $totalBytes);
+            $this->reportOrphanMailboxes($ldapUids);
         }
 
         return SfCommand::SUCCESS;
-    }
-
-    /**
-     * Affiche le résultat de l'analyse des répertoires IMAP.
-     *
-     * @param  array<int, string>  $missingMailboxes
-     * @param  array<int, string>  $unmeasuredMailboxes
-     */
-    private function reportImapScan(
-        array $missingMailboxes,
-        array $unmeasuredMailboxes,
-        int $scannedMailboxes,
-        int $totalBytes,
-    ): void {
-        $this->newLine();
-
-        $this->listMailboxes($missingMailboxes, 'répertoire(s) IMAP introuvable(s)');
-        $this->listMailboxes($unmeasuredMailboxes, 'répertoire(s) IMAP sans fichier maildirsize');
-
-        $this->info(
-            $scannedMailboxes.' répertoire(s) IMAP analysé(s), espace occupé : '
-            .Number::fileSize($totalBytes, 2).' (estimation Dovecot)'
-        );
-    }
-
-    /**
-     * @param  array<int, string>  $usernames
-     */
-    private function listMailboxes(array $usernames, string $label): void
-    {
-        if ($usernames === []) {
-            return;
-        }
-
-        $this->warn(count($usernames).' '.$label.' :');
-
-        foreach ($usernames as $username) {
-            $this->line('  - '.$username);
-        }
-
-        $this->newLine();
     }
 
     private function addUser(CitoyenLdap $citoyenLdap): ?Citoyen
@@ -164,6 +112,68 @@ final class SyncCommand extends Command
         $citoyen->update(['last_connection' => $lastLoginAt]);
     }
 
+    /**
+     * Liste les répertoires IMAP qui ne correspondent plus à aucune entrée LDAP.
+     *
+     * @param  array<int, string>  $ldapUids
+     */
+    private function reportOrphanMailboxes(array $ldapUids): void
+    {
+        $this->newLine();
+
+        if (count($ldapUids) <= self::MINIMUM_LDAP_ENTRIES) {
+            $this->warn('Annuaire incomplet ('.count($ldapUids).' entrées) : analyse des répertoires IMAP abandonnée.');
+
+            return;
+        }
+
+        $mailboxes = $this->ldapCitoyenRepository->allMailboxDirectories();
+
+        if ($mailboxes === []) {
+            $this->warn('Aucun répertoire IMAP trouvé sous '.$this->ldapCitoyenRepository->sieveRoot);
+
+            return;
+        }
+
+        $known = array_flip($ldapUids);
+        $rows = [];
+        $totalBytes = 0;
+
+        foreach ($mailboxes as $uid => $path) {
+            if (isset($known[$uid])) {
+                continue;
+            }
+
+            $bytes = $this->ldapCitoyenRepository->mailboxSize($path) ?? 0;
+            $totalBytes += $bytes;
+            $rows[] = ['uid' => $uid, 'path' => $path, 'bytes' => $bytes];
+        }
+
+        $this->info(count($mailboxes).' répertoire(s) IMAP examiné(s).');
+
+        if ($rows === []) {
+            $this->info('Aucun répertoire orphelin.');
+
+            return;
+        }
+
+        usort($rows, fn (array $a, array $b): int => $b['bytes'] <=> $a['bytes']);
+
+        $this->table(
+            ['uid', 'répertoire', 'taille'],
+            array_map(
+                fn (array $row): array => [$row['uid'], $row['path'], Number::fileSize($row['bytes'], 2)],
+                $rows
+            )
+        );
+
+        $this->warn(
+            count($rows).' répertoire(s) IMAP sans entrée LDAP, '
+            .Number::fileSize($totalBytes, 2).' récupérable(s) (estimation Dovecot).'
+        );
+        $this->line('Aucune suppression effectuée : vérifiez la liste avant tout rm.');
+    }
+
     private function missingFromLdap(): void
     {
         $ldapUsernames = [];
@@ -172,7 +182,7 @@ final class SyncCommand extends Command
             $ldapUsernames[] = $citoyenLdap->getFirstAttribute('uid');
         }
 
-        if (count($ldapUsernames) > 200) {
+        if (count($ldapUsernames) > self::MINIMUM_LDAP_ENTRIES) {
             foreach (Citoyen::all() as $citoyen) {
                 if (! in_array($citoyen->uid, $ldapUsernames, true)) {
                     $citoyen->delete();
