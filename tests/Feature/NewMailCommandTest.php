@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Ldap\LdapCitoyenRepository;
+use App\Models\Citoyen;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\File;
 use LdapRecord\Testing\DirectoryFake;
@@ -45,6 +46,21 @@ function ldapEntry(string $uid, string $homeDirectory): array
         'mail' => [$uid.'@marche.be'],
         'homeDirectory' => [$homeDirectory],
     ];
+}
+
+/**
+ * Crée l'entrée SQL correspondant à un citoyen de l'annuaire.
+ */
+function createCitoyen(string $uid): Citoyen
+{
+    return Citoyen::create([
+        'uid' => $uid,
+        'dn' => "uid={$uid},ou=Users,ou=Citoyens,dc=marche,dc=be",
+        'mail' => $uid.'@marche.be',
+        'gosaMailQuota' => 250,
+        'homeDirectory' => '/var/spool/dovecot/mail/'.mb_substr($uid, 0, 1).'/'.$uid,
+        'gosaMailForwardingAddress' => $uid.'@marche.be',
+    ]);
 }
 
 /**
@@ -228,9 +244,44 @@ it('deletes an account without any sieve script, without asking for confirmation
     $this->artisan('citoyen:new-mail', ['--delete' => true])
         ->expectsOutputToContain('Aucun script Sieve : aucune redirection possible, suppression directe.')
         ->doesntExpectOutputToContain('Supprimer le compte')
-        ->expectsOutputToContain('Compte jdoe supprimé.')
+        ->expectsOutputToContain("Compte jdoe supprimé de l'annuaire LDAP.")
         ->expectsOutputToContain('rm -rI '.$this->home)
         ->expectsOutputToContain('1 compte(s) supprimé(s), 0 conservé(s), 0 ignoré(s) pour cause de redirection, 0 en erreur.')
+        ->assertSuccessful();
+});
+
+it('deletes the SQL citizen along with the LDAP entry', function (): void {
+    createCitoyen('jdoe');
+    $kept = createCitoyen('asmith');
+    File::put($this->home.'/Maildir/new/'.CarbonImmutable::now()->subDays(60)->getTimestamp().'.M1P2.mail', 'body');
+
+    DirectoryFake::setup('citoyen')
+        ->getLdapConnection()
+        ->expect([
+            LdapFake::operation('search')->andReturn([ldapEntry('jdoe', $this->home)]),
+            LdapFake::operation('delete')->once()->andReturn(true),
+        ]);
+
+    $this->artisan('citoyen:new-mail', ['--delete' => true])
+        ->expectsOutputToContain('Entrée SQL supprimée pour jdoe.')
+        ->assertSuccessful();
+
+    expect(Citoyen::query()->where('uid', 'jdoe')->exists())->toBeFalse()
+        ->and(Citoyen::query()->whereKey($kept->getKey())->exists())->toBeTrue();
+});
+
+it('reports when the deleted LDAP account has no SQL counterpart', function (): void {
+    File::put($this->home.'/Maildir/new/'.CarbonImmutable::now()->subDays(60)->getTimestamp().'.M1P2.mail', 'body');
+
+    DirectoryFake::setup('citoyen')
+        ->getLdapConnection()
+        ->expect([
+            LdapFake::operation('search')->andReturn([ldapEntry('jdoe', $this->home)]),
+            LdapFake::operation('delete')->once()->andReturn(true),
+        ]);
+
+    $this->artisan('citoyen:new-mail', ['--delete' => true])
+        ->expectsOutputToContain('Aucune entrée SQL trouvée pour jdoe.')
         ->assertSuccessful();
 });
 
@@ -248,7 +299,7 @@ it('deletes the confirmed account whose sieve script does not redirect', functio
     $this->artisan('citoyen:new-mail', ['--delete' => true])
         ->expectsOutputToContain('Aucune redirection trouvée.')
         ->expectsConfirmation('Supprimer le compte jdoe ?', 'yes')
-        ->expectsOutputToContain('Compte jdoe supprimé.')
+        ->expectsOutputToContain("Compte jdoe supprimé de l'annuaire LDAP.")
         ->expectsOutputToContain('1 compte(s) supprimé(s), 0 conservé(s), 0 ignoré(s) pour cause de redirection, 0 en erreur.')
         ->assertSuccessful();
 });

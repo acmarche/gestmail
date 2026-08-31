@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Ldap\LdapCitoyenRepository;
+use App\Models\Citoyen;
 use Carbon\CarbonImmutable;
 use Exception;
 use Illuminate\Console\Command;
@@ -24,7 +25,7 @@ final class NewMailCommand extends Command
                             {keyword? : uid ou adresse mail à filtrer, tous les comptes si omis}
                             {--only-with-mail : N\'affiche que les comptes ayant au moins un message non lu}
                             {--min-days= : N\'affiche que les comptes dont le plus ancien message non lu dépasse ce nombre de jours}
-                            {--delete : Propose la suppression LDAP des comptes listés, après vérification des redirections}';
+                            {--delete : Propose la suppression LDAP et SQL des comptes listés, après vérification des redirections}';
 
     /**
      * The console command description.
@@ -119,7 +120,7 @@ final class NewMailCommand extends Command
     }
 
     /**
-     * Supprime les comptes listés, après lecture de leur script Sieve.
+     * Supprime les comptes listés (LDAP puis SQL), après lecture de leur script Sieve.
      *
      * Sans script Sieve, aucune redirection n'est possible : le compte est
      * supprimé directement. Sinon, une redirection fait ignorer le compte —
@@ -176,7 +177,13 @@ final class NewMailCommand extends Command
 
             try {
                 $this->ldapCitoyenRepository->delete($uid);
-                $this->info("✓ Compte {$uid} supprimé.");
+                $this->info("✓ Compte {$uid} supprimé de l'annuaire LDAP.");
+
+                $sqlDeleted = Citoyen::query()->where('uid', $uid)->delete();
+                $this->line($sqlDeleted > 0
+                    ? "  Entrée SQL supprimée pour {$uid}."
+                    : "  Aucune entrée SQL trouvée pour {$uid}.");
+
                 $this->line('  Pour supprimer le dossier imap : rm -rI '.$citizen->getFirstAttribute('homeDirectory'));
                 $results[] = [$uid, $mail, 'Supprimé', 'rm -rI '.$citizen->getFirstAttribute('homeDirectory')];
             } catch (Exception|LdapRecordException $exception) {

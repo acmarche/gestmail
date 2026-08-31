@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Ldap\LdapCitoyenRepository;
+use App\Models\Citoyen;
 use Exception;
 use Illuminate\Console\Command;
 use LdapRecord\LdapRecordException;
@@ -26,7 +27,7 @@ final class DeleteCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Suppression d\'un compte citoyen';
+    protected $description = 'Suppression d\'un compte citoyen (annuaire LDAP et base SQL)';
 
     public function __construct(private readonly LdapCitoyenRepository $ldapCitoyenRepository)
     {
@@ -77,7 +78,12 @@ final class DeleteCommand extends Command
 
         try {
             $this->ldapCitoyenRepository->delete($uid);
-            $this->info("Le compte {$uid} a été supprimé avec succès.");
+            $this->info("Le compte {$uid} a été supprimé de l'annuaire LDAP.");
+
+            $sqlDeleted = Citoyen::query()->where('uid', $uid)->delete();
+            $this->info($sqlDeleted > 0
+                ? "L'entrée SQL de {$uid} a été supprimée."
+                : "Aucune entrée SQL trouvée pour {$uid}.");
 
             $attribute = $citizen->getAttribute('homeDirectory');
             $chemin = (string) $attribute[0];
