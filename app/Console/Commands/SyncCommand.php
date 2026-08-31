@@ -9,6 +9,7 @@ use App\Ldap\CitoyenLdap;
 use App\Ldap\LdapCitoyenRepository;
 use App\Models\Citoyen;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Number;
 use Symfony\Component\Console\Command\Command as SfCommand;
 use Throwable;
@@ -28,7 +29,8 @@ final class SyncCommand extends Command
      * @var string
      */
     protected $signature = 'citoyen:sync
-                            {--scan-imap : Analyse les répertoires IMAP : liste les manquants et totalise l\'espace occupé}';
+                            {--scan-imap : Liste les répertoires IMAP orphelins (sans entrée LDAP) et l\'espace qu\'ils occupent}
+                            {--delete : Supprime les répertoires orphelins listés, sans confirmation}';
 
     /**
      * The console command description.
@@ -47,7 +49,8 @@ final class SyncCommand extends Command
      */
     public function handle(): int
     {
-        $scanImap = (bool) $this->option('scan-imap');
+        $deleteOrphans = (bool) $this->option('delete');
+        $scanImap = (bool) $this->option('scan-imap') || $deleteOrphans;
 
         /** @var array<int, string> $ldapUids */
         $ldapUids = [];
@@ -73,7 +76,7 @@ final class SyncCommand extends Command
         $this->missingFromLdap();
 
         if ($scanImap) {
-            $this->reportOrphanMailboxes($ldapUids);
+            $this->reportOrphanMailboxes($ldapUids, $deleteOrphans);
         }
 
         return SfCommand::SUCCESS;
@@ -117,7 +120,7 @@ final class SyncCommand extends Command
      *
      * @param  array<int, string>  $ldapUids
      */
-    private function reportOrphanMailboxes(array $ldapUids): void
+    private function reportOrphanMailboxes(array $ldapUids, bool $deleteOrphans): void
     {
         $this->newLine();
 
@@ -171,7 +174,51 @@ final class SyncCommand extends Command
             count($rows).' répertoire(s) IMAP sans entrée LDAP, '
             .Number::fileSize($totalBytes, 2).' récupérable(s) (estimation Dovecot).'
         );
-        $this->line('Aucune suppression effectuée : vérifiez la liste avant tout rm.');
+        if (! $deleteOrphans) {
+            $this->line('Aucune suppression effectuée : vérifiez la liste avant tout rm.');
+
+            return;
+        }
+
+        $this->deleteOrphanMailboxes($rows);
+    }
+
+    /**
+     * Supprime définitivement les répertoires orphelins listés.
+     *
+     * Appelée uniquement derrière le garde-fou de self::MINIMUM_LDAP_ENTRIES :
+     * sur une lecture partielle de l'annuaire, ce sont des boîtes valides qui
+     * seraient effacées.
+     *
+     * @param  array<int, array{uid: string, path: string, bytes: int}>  $orphans
+     */
+    private function deleteOrphanMailboxes(array $orphans): void
+    {
+        $this->newLine();
+
+        $deleted = 0;
+        $freedBytes = 0;
+        /** @var array<int, string> $failed */
+        $failed = [];
+
+        foreach ($orphans as $orphan) {
+            if (File::deleteDirectory($orphan['path'])) {
+                $deleted++;
+                $freedBytes += $orphan['bytes'];
+                $this->line('Supprimé : '.$orphan['path']);
+
+                continue;
+            }
+
+            $failed[] = $orphan['uid'];
+            $this->error('Échec de la suppression de '.$orphan['path']);
+        }
+
+        $this->info($deleted.' répertoire(s) supprimé(s), '.Number::fileSize($freedBytes, 2).' libéré(s).');
+
+        if ($failed !== []) {
+            $this->error(count($failed).' échec(s) : '.implode(', ', $failed));
+        }
     }
 
     private function missingFromLdap(): void
