@@ -250,11 +250,6 @@ syncs the non-password attributes (name, address, quota, forwarding, …).
 
 ## Migration auth ldap => Sql
 
-### Dovecot
-
-Un exemple d'installation dovecot et la table sql est disponible sur citoyen:/home/jfsenechal/dovecot-with-sql/
-Cette config permet de s'authentifier avec le mot de passe actuel, et futur.
-
 ### Liste des utilisateurs
 Les entrées de LDAP sont copiés dans la base de données sql **citizen.citoyens**
 
@@ -264,6 +259,11 @@ Le champ **userPassword** contient le mot de passe changé par l'utilisateur ou 
 Ce champ contient un cryptage plus fort que sur la ldap **ARGON2ID**
 
 La synchronisation se fait avec la commande ```php artisan citoyen:sync```
+
+### Dovecot
+
+Un exemple d'installation dovecot et la table sql est disponible sur citoyen:/home/jfsenechal/dovecot-with-sql/
+Cette config permet de s'authentifier avec le mot de passe actuel, et futur.
 
 ### Roundcube
 
