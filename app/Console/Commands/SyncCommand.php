@@ -37,7 +37,7 @@ final class SyncCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Synchronise les comptes citoyens de l\'annuaire LDAP vers la base SQL';
+    protected $description = 'Synchronise les comptes citoyens de l\'annuaire LDAP vers la base SQL et met à jour la date de la dernière connection';
 
     public function __construct(private readonly LdapCitoyenRepository $ldapCitoyenRepository)
     {
