@@ -1,0 +1,45 @@
+# /etc/systemd/system/gestmail-scheduler.service
+[Unit]
+Description=Laravel scheduler tick (gestmail)
+After=network-online.target mariadb.service
+Wants=network-online.target mariadb.service
+
+[Service]
+Type=oneshot
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/gestmail
+ExecStart=/usr/bin/php /var/www/gestmail/artisan schedule:run --no-interaction
+# Don't reap children when the tick exits: a task using runInBackground() outlives it
+KillMode=process
+TimeoutStartSec=0
+
+#
+#  ┌─────────────────────────────────┬───────────────────────────────────────────────────────────────────────────────┐
+#  │              Part               │                                    Reason                                     │
+#  ├─────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────┤
+#  │ Type=oneshot                    │ One tick, runs the due tasks, exits — the .timer does the repeating           │
+#  ├─────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────┤
+#  │ no [Install] / no Restart       │ Never started on its own: gestmail-scheduler.timer is the only trigger        │
+#  ├─────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────┤
+#  │ User=frankenphp                 │ Matches the owner of storage/ so the tick can write logs/cache                │
+#  ├─────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────┤
+#  │ After=mariadb.service           │ citoyen:sync writes the citoyens table — don't tick before the DB is up       │
+#  ├─────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────┤
+#  │ Wants=network-online.target     │ The sync reads the LDAP directory over the network                           │
+#  ├─────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────┤
+#  │ KillMode=process                │ Default control-group kill would SIGKILL a runInBackground() task mid-run    │
+#  ├─────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────┤
+#  │ TimeoutStartSec=0               │ A full citoyen:sync may run for many minutes; don't let systemd abort it     │
+#  └─────────────────────────────────┴───────────────────────────────────────────────────────────────────────────────┘
+#
+#  Install:
+#    sudo cp etc/systemd/system/gestmail-scheduler.{service,timer} /etc/systemd/system/
+#    sudo systemctl daemon-reload
+#    sudo systemctl enable --now gestmail-scheduler.timer
+#    systemctl list-timers gestmail-scheduler.timer
+#
+#  The schedule itself lives in routes/console.php (citoyen:sync, daily at 02:00).
+#  Inspect it with: php artisan schedule:list
+#  Run one tick by hand with: sudo systemctl start gestmail-scheduler.service
+#  Task output: journalctl -u gestmail-scheduler.service  +  storage/logs/citoyen-sync.log

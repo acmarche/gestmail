@@ -1,0 +1,25 @@
+# /etc/systemd/system/gestmail-scheduler.timer
+[Unit]
+Description=Tick the gestmail Laravel scheduler every minute
+
+[Timer]
+OnCalendar=minutely
+AccuracySec=1s
+Persistent=false
+Unit=gestmail-scheduler.service
+
+[Install]
+WantedBy=timers.target
+
+#
+#  ┌──────────────────────┬──────────────────────────────────────────────────────────────────────────────────┐
+#  │         Part         │                                      Reason                                      │
+#  ├──────────────────────┼──────────────────────────────────────────────────────────────────────────────────┤
+#  │ OnCalendar=minutely  │ Replaces the `* * * * * artisan schedule:run` cron entry Laravel expects          │
+#  ├──────────────────────┼──────────────────────────────────────────────────────────────────────────────────┤
+#  │ AccuracySec=1s       │ Default 1min accuracy lets systemd drift a tick; dailyAt('02:00') needs the slot │
+#  ├──────────────────────┼──────────────────────────────────────────────────────────────────────────────────┤
+#  │ Persistent=false     │ No catch-up burst of missed minutes after downtime — the next tick is enough     │
+#  ├──────────────────────┼──────────────────────────────────────────────────────────────────────────────────┤
+#  │ WantedBy=timers.target│ Starts at boot once enabled                                                     │
+#  └──────────────────────┴──────────────────────────────────────────────────────────────────────────────────┘
