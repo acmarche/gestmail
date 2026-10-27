@@ -61,7 +61,7 @@
     <p>Afin d'améliorer nos services, nous allons procéder à une maintenance sur nos systèmes informatiques.</p>
 
     <p class="section-title">Interruption prévue :</p>
-    <p>Tous les sites internet et mail seront coupés entre 9h et 12h le lundi 6 avril 2026.</p>
+    <p>Le serveur mail sera coupé entre 10h et 14h le mardi 3 novembre 2026.</p>
 
     <p> Nous vous prions de bien vouloir nous excuser pour la gêne occasionnée et vous remercions pour votre
         compréhension.
