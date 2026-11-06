@@ -9,8 +9,10 @@ use Filament\Auth\Http\Responses\Contracts\LoginResponse;
 use Filament\Auth\Pages\Login;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\ToggleButtons;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Schemas\Components\Component;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Illuminate\Auth\SessionGuard;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -55,6 +57,9 @@ final class CitoyenLogin extends Login
     {
         return $schema
             ->components([
+                $this->getMethodFormComponent(),
+                $this->getUsernameFormComponent(),
+                $this->getPasswordFormComponent(),
                 $this->getTokenFormComponent(),
             ]);
     }
@@ -66,7 +71,42 @@ final class CitoyenLogin extends Login
 
     public function getSubheading(): string|Htmlable|null
     {
-        return 'Entrez votre jeton personnel';
+        return 'Connectez-vous avec votre mot de passe ou votre jeton personnel';
+    }
+
+    protected function getMethodFormComponent(): Component
+    {
+        return ToggleButtons::make('method')
+            ->hiddenLabel()
+            ->options([
+                'password' => 'Mot de passe',
+                'token' => 'Jeton personnel',
+            ])
+            ->default('password')
+            ->inline()
+            ->required()
+            ->live();
+    }
+
+    protected function getUsernameFormComponent(): Component
+    {
+        return TextInput::make('username')
+            ->label('Adresse e-mail')
+            ->required()
+            ->autocomplete('username')
+            ->autofocus()
+            ->visible(fn (Get $get): bool => $get('method') === 'password');
+    }
+
+    protected function getPasswordFormComponent(): Component
+    {
+        return TextInput::make('password')
+            ->label('Mot de passe')
+            ->password()
+            ->revealable()
+            ->required()
+            ->autocomplete('current-password')
+            ->visible(fn (Get $get): bool => $get('method') === 'password');
     }
 
     protected function getTokenFormComponent(): Component
@@ -77,20 +117,27 @@ final class CitoyenLogin extends Login
             ->revealable()
             ->required()
             ->autocomplete('off')
-            ->autofocus();
+            ->visible(fn (Get $get): bool => $get('method') === 'token');
     }
 
     protected function getCredentialsFromFormData(array $data): array
     {
+        if ($data['method'] === 'token') {
+            return ['token' => $data['token']];
+        }
+
         return [
-            'token' => $data['token'],
+            'username' => $data['username'],
+            'password' => $data['password'],
         ];
     }
 
     protected function throwFailureValidationException(): never
     {
+        $field = ($this->data['method'] ?? null) === 'token' ? 'data.token' : 'data.username';
+
         throw ValidationException::withMessages([
-            'data.token' => __('filament-panels::auth/pages/login.messages.failed'),
+            $field => __('filament-panels::auth/pages/login.messages.failed'),
         ]);
     }
 }

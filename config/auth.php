@@ -16,7 +16,7 @@ return [
     */
 
     'defaults' => [
-        'guard' => env('AUTH_GUARD', 'citoyen'),
+        'guard' => env('AUTH_GUARD', 'virtual_user'),
     ],
 
     /*
@@ -37,9 +37,9 @@ return [
     */
 
     'guards' => [
-        'citoyen' => [
+        'virtual_user' => [
             'driver' => 'session',
-            'provider' => 'citoyens',
+            'provider' => 'virtual_users',
         ],
     ],
 
@@ -61,9 +61,9 @@ return [
     */
 
     'providers' => [
-        'citoyens' => [
-            'driver' => 'citoyen-token',
-            'model' => App\Models\Citoyen::class,
+        'virtual_users' => [
+            'driver' => 'virtual-user',
+            'model' => App\Models\VirtualUser::class,
         ],
     ],
 

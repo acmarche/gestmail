@@ -62,9 +62,7 @@ final class ChangePassword extends Page implements HasForms
         $data = $this->form->getState();
 
         try {
-            $user = Filament::auth()->user();
-
-            $citoyenHandler->changePassword($user, $data['new_password']);
+            $citoyenHandler->changePassword(Filament::auth()->user()->citoyen, $data['new_password']);
 
             $this->form->fill();
 

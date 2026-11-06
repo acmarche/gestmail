@@ -21,7 +21,7 @@ it('logs a citizen in with their personal link', function (): void {
     $this->get(route('citoyen.auto-login', $citoyen->auth_token))
         ->assertRedirect('/citoyen');
 
-    $this->assertAuthenticatedAs($citoyen, 'citoyen');
+    $this->assertAuthenticatedAs($citoyen->virtualUser, 'virtual_user');
 });
 
 it('refuses an unknown personal link', function (): void {
@@ -31,7 +31,7 @@ it('refuses an unknown personal link', function (): void {
 it('redirects a citizen to the onboarding until it is completed', function (): void {
     $citoyen = Citoyen::factory()->create();
 
-    $this->actingAs($citoyen, 'citoyen')
+    $this->actingAs($citoyen->virtualUser, 'virtual_user')
         ->get('/citoyen')
         ->assertRedirect(route('filament.citoyen.pages.onboarding'));
 });
@@ -42,13 +42,13 @@ it('opens the dashboard once the onboarding is completed', function (): void {
         'recovery_email' => 'perso@example.com',
     ]);
 
-    $this->actingAs($citoyen, 'citoyen')->get('/citoyen')->assertSuccessful();
+    $this->actingAs($citoyen->virtualUser, 'virtual_user')->get('/citoyen')->assertSuccessful();
 });
 
 it('completes the onboarding and stores the password in virtual_users', function (): void {
     $citoyen = Citoyen::factory()->create();
 
-    $this->actingAs($citoyen, 'citoyen');
+    $this->actingAs($citoyen->virtualUser, 'virtual_user');
 
     livewire(Onboarding::class)
         ->fillForm([
@@ -71,7 +71,7 @@ it('changes the password from the personal page', function (): void {
         'recovery_email' => 'perso@example.com',
     ]);
 
-    $this->actingAs($citoyen, 'citoyen');
+    $this->actingAs($citoyen->virtualUser, 'virtual_user');
 
     livewire(ChangePassword::class)
         ->fillForm([
@@ -90,7 +90,7 @@ it('rejects a password shorter than 12 characters', function (): void {
         'recovery_email' => 'perso@example.com',
     ]);
 
-    $this->actingAs($citoyen, 'citoyen');
+    $this->actingAs($citoyen->virtualUser, 'virtual_user');
 
     livewire(ChangePassword::class)
         ->fillForm([

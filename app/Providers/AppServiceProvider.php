@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use App\Auth\CitoyenTokenProvider;
+use App\Auth\VirtualUserProvider;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Placeholder;
 use Filament\Infolists\Components\Entry;
@@ -26,8 +26,8 @@ final class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        Auth::provider('citoyen-token', function ($app, array $config) {
-            return new CitoyenTokenProvider;
+        Auth::provider('virtual-user', function ($app, array $config) {
+            return new VirtualUserProvider;
         });
 
         $this->configureTable();

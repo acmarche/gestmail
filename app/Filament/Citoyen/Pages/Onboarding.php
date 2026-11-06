@@ -46,8 +46,8 @@ final class Onboarding extends Page implements HasForms
         }
 
         $this->form->fill([
-            'recovery_email' => $user->recovery_email,
-            'recovery_phone' => $user->recovery_phone,
+            'recovery_email' => $user->citoyen->recovery_email,
+            'recovery_phone' => $user->citoyen->recovery_phone,
         ]);
     }
 
@@ -116,12 +116,12 @@ final class Onboarding extends Page implements HasForms
     {
         $data = $this->form->getState();
 
-        $user = Filament::auth()->user();
+        $citoyen = Filament::auth()->user()->citoyen;
 
         try {
-            $citoyenHandler->changePassword($user, $data['new_password']);
+            $citoyenHandler->changePassword($citoyen, $data['new_password']);
 
-            $user->update([
+            $citoyen->update([
                 'charter_accepted_at' => now(),
                 'recovery_email' => $data['recovery_email'],
                 'recovery_phone' => $data['recovery_phone'],

@@ -44,21 +44,44 @@ final class DovecotPassword
     }
 
     /**
-     * Verify a clear-text password against a stored Argon2id hash, with or
-     * without the leading scheme tag.
+     * Verify a clear-text password against a stored hash, like Dovecot does: the
+     * scheme tag decides how, and a hash without one is taken as Argon2id.
      *
-     * Only the current scheme is handled. Dovecot performs the actual
-     * authentication and detects any other scheme from its own prefix.
+     * Besides Argon2id, these are the legacy schemes found in virtual_users. {MD5}
+     * is base64, as in LDAP. An unknown scheme never matches.
      */
     public static function check(string $password, string $stored): bool
     {
-        return password_verify($password, self::stripScheme($stored));
+        [$scheme, $hash] = self::parse($stored);
+
+        return match ($scheme) {
+            '', 'ARGON2ID' => password_verify($password, $hash),
+            'CRYPT' => hash_equals($hash, crypt($password, $hash)),
+            'MD5' => hash_equals((string) base64_decode($hash, true), md5($password, true)),
+            'SHA' => hash_equals((string) base64_decode($hash, true), sha1($password, true)),
+            'SSHA' => self::checkSaltedSha($password, (string) base64_decode($hash, true)),
+            default => false,
+        };
     }
 
-    private static function stripScheme(string $stored): string
+    /**
+     * @return array{string, string} The uppercase scheme, empty when there is none, and the hash.
+     */
+    private static function parse(string $stored): array
     {
-        return str_starts_with($stored, self::SCHEME)
-            ? mb_substr($stored, mb_strlen(self::SCHEME))
-            : $stored;
+        if (preg_match('/^\{([^}]+)\}(.*)$/s', $stored, $matches) === 1) {
+            return [mb_strtoupper($matches[1]), $matches[2]];
+        }
+
+        return ['', $stored];
+    }
+
+    /**
+     * The decoded value is the 20 bytes of the SHA-1 digest followed by the salt. It is
+     * binary, hence the 8bit encoding.
+     */
+    private static function checkSaltedSha(string $password, string $decoded): bool
+    {
+        return hash_equals(mb_substr($decoded, 0, 20, '8bit'), sha1($password.mb_substr($decoded, 20, null, '8bit'), true));
     }
 }

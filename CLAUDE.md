@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-GestMail is a Laravel 12 application for managing citizen email accounts stored in SQL. Citizens use a Filament 5 personal area (token login); Mailbox maintenance is done through `citoyen:*` Artisan commands.
+GestMail is a Laravel 13 application for managing citizen email accounts stored in SQL. Citizens use a Filament 5 personal area (token login); Mailbox maintenance is done through `citoyen:*` Artisan commands.
 
 ## Development Commands
 
@@ -37,11 +37,12 @@ npm run dev
 - `citoyens` (`App\Models\Citoyen`): personal data, `auth_token`, onboarding fields; `citoyens.mail` references `virtual_users.username`
 - `app/Service/CitoyenHandler.php` - delete accounts, change passwords
 - `app/Repository/MailboxRepository.php` - read Maildir and Sieve data under `/home/vmail/marche.be/`
-- Passwords are hashed by `app/Support/DovecotPassword.php` (`{ARGON2ID}` prefix)
+- Passwords are hashed by `app/Support/DovecotPassword.php` (`{ARGON2ID}` prefix), which also verifies the legacy `{SSHA}`, `{SHA}`, `{MD5}` and `{CRYPT}` hashes
 
 ### Citizen panel
 - Filament 5 panel at `/citoyen`, configured in `app/Providers/Filament/CitoyenPanelProvider.php`
-- Login with a personal token, or the link `/citoyen/login/{token}` (guard `citoyen`)
+- Guard `virtual_user`: citizens log in as a `VirtualUser`, with their username and password, a personal token, or the link `/citoyen/login/{token}`
+- `app/Auth/VirtualUserProvider.php` checks the credentials: `userPassword` when set, otherwise `legacy_password`, as Dovecot does; the token is `citoyens.auth_token`
 - Pages auto-discovered from `app/Filament/Citoyen/Pages`
 - `EnsureCharterAccepted` keeps citizens on the onboarding wizard until it is completed
 

@@ -31,11 +31,11 @@ final class RecoveryInfo extends Page implements HasForms
 
     public function mount(): void
     {
-        $user = Filament::auth()->user();
+        $citoyen = Filament::auth()->user()->citoyen;
 
         $this->form->fill([
-            'recovery_email' => $user->recovery_email,
-            'recovery_phone' => $user->recovery_phone,
+            'recovery_email' => $citoyen->recovery_email,
+            'recovery_phone' => $citoyen->recovery_phone,
         ]);
     }
 
@@ -59,7 +59,7 @@ final class RecoveryInfo extends Page implements HasForms
     {
         $data = $this->form->getState();
 
-        Filament::auth()->user()->update([
+        Filament::auth()->user()->citoyen->update([
             'recovery_email' => $data['recovery_email'],
             'recovery_phone' => $data['recovery_phone'],
         ]);

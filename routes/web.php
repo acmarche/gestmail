@@ -2,7 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Models\Citoyen;
+use App\Models\VirtualUser;
+use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -10,13 +11,13 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', fn () => redirect('/citoyen'));
 
 Route::get('/citoyen/login/{token}', function (string $token) {
-    $citoyen = Citoyen::where('auth_token', $token)->first();
+    $isLoggedIn = Auth::guard('virtual_user')->attemptWhen(
+        ['token' => $token],
+        fn (VirtualUser $virtualUser): bool => $virtualUser->canAccessPanel(Filament::getPanel('citoyen')),
+    );
 
-    if (! $citoyen) {
-        abort(403);
-    }
+    abort_unless($isLoggedIn, 403);
 
-    Auth::guard('citoyen')->login($citoyen);
     session()->regenerate();
 
     return redirect('/citoyen');
