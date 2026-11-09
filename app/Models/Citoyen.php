@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Casts\EncryptedPersonalDataCast;
 use App\Repository\CitoyenRepository;
 use App\Repository\MailboxRepository;
 use Database\Factories\CitoyenFactory;
@@ -133,6 +134,11 @@ final class Citoyen extends Model
         return [
             'last_connection' => 'date',
             'charter_accepted_at' => 'datetime',
+            'employeeNumber' => EncryptedPersonalDataCast::class,
+            'postalAddress' => EncryptedPersonalDataCast::class,
+            'l' => EncryptedPersonalDataCast::class,
+            'recovery_email' => EncryptedPersonalDataCast::class,
+            'recovery_phone' => EncryptedPersonalDataCast::class,
         ];
     }
 }

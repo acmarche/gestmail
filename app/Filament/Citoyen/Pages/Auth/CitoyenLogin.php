@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Citoyen\Pages\Auth;
 
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
+use Filament\Actions\Action;
 use Filament\Auth\Http\Responses\Contracts\LoginResponse;
 use Filament\Auth\Pages\Login;
 use Filament\Facades\Filament;
@@ -17,6 +18,7 @@ use Filament\Schemas\Schema;
 use Illuminate\Auth\SessionGuard;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\HtmlString;
 use Illuminate\Validation\ValidationException;
 
 final class CitoyenLogin extends Login
@@ -71,7 +73,15 @@ final class CitoyenLogin extends Login
 
     public function getSubheading(): string|Htmlable|null
     {
-        return 'Connectez-vous avec votre mot de passe ou votre jeton personnel';
+        return new HtmlString('Connectez-vous avec votre mot de passe ou votre jeton personnel. '.$this->recoveryAction->toHtml());
+    }
+
+    public function recoveryAction(): Action
+    {
+        return Action::make('recovery')
+            ->link()
+            ->label('Mot de passe oublié ?')
+            ->url(route('filament.citoyen.auth.recovery'));
     }
 
     protected function getMethodFormComponent(): Component

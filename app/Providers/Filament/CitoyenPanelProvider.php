@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Providers\Filament;
 
 use App\Filament\Citoyen\Pages\Auth\CitoyenLogin;
+use App\Filament\Citoyen\Pages\Auth\RecoveryLogin;
+use App\Filament\Citoyen\Pages\Auth\RequestRecoveryLink;
 use App\Http\Middleware\EnsureCharterAccepted;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -19,6 +21,7 @@ use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\Route;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 final class CitoyenPanelProvider extends PanelProvider
@@ -31,6 +34,10 @@ final class CitoyenPanelProvider extends PanelProvider
             ->path('citoyen')
             ->authGuard('virtual_user')
             ->login(CitoyenLogin::class)
+            ->routes(function (): void {
+                Route::get('mot-de-passe-oublie', RequestRecoveryLink::class)->name('auth.recovery');
+                Route::get('recuperation/{token}', RecoveryLogin::class)->name('auth.recovery-login');
+            })
             ->spa()
             ->colors([
                 'primary' => Color::Emerald,

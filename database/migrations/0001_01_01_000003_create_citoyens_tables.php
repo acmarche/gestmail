@@ -34,9 +34,9 @@ return new class extends Migration
                 $table->string('mail')->unique();
                 $table->string('givenName')->nullable();
                 $table->string('sn')->nullable();
-                $table->string('l')->nullable();
-                $table->string('postalAddress')->nullable();
-                $table->string('employeeNumber')->nullable();
+                $table->text('l')->nullable();
+                $table->text('postalAddress')->nullable();
+                $table->text('employeeNumber')->nullable();
                 $table->string('postalCode')->nullable();
                 $table->string('homeDirectory');
                 $table->text('description')->nullable();
@@ -45,8 +45,8 @@ return new class extends Migration
                 $table->string('auth_token')->nullable()->unique();
                 $table->rememberToken();
                 $table->timestamp('charter_accepted_at')->nullable();
-                $table->string('recovery_email')->nullable();
-                $table->string('recovery_phone')->nullable();
+                $table->text('recovery_email')->nullable();
+                $table->text('recovery_phone')->nullable();
                 $table->string('hand_password')->nullable();
 
                 $table->foreign('mail')->references('username')->on('virtual_users')->cascadeOnUpdate();
