@@ -7,14 +7,66 @@ use App\Filament\Citoyen\Pages\Auth\RequestRecoveryLink;
 use App\Models\Citoyen;
 use App\Models\VirtualUser;
 use App\Notifications\CitoyenRecoveryLink;
+use App\Sms\InforiusClient;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
+use Illuminate\Http\Client\Factory as HttpFactory;
+use Illuminate\Http\Client\Request;
 use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 
 use function Pest\Livewire\livewire;
+
+/**
+ * InforiusClient is final, so the gateway is faked at the HTTP layer, as in the intranet.
+ */
+function fakeSmsGateway(mixed $sendResponse): HttpFactory
+{
+    $http = new HttpFactory;
+    $http->fake([
+        'sms.example.test/RequestToken' => HttpFactory::response(
+            <<<'XML'
+<RequestTokenResponse xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+    <Error i:nil="true"/>
+    <Expiration>1200000</Expiration>
+    <Token>token-xyz</Token>
+</RequestTokenResponse>
+XML
+        ),
+        'sms.example.test/Send' => $sendResponse,
+    ]);
+
+    app()->instance(InforiusClient::class, new InforiusClient(
+        host: 'https://sms.example.test/',
+        user: 'test_user',
+        password: 'secret',
+        http: $http,
+    ));
+
+    return $http;
+}
+
+function successfulSendResponse(): mixed
+{
+    return HttpFactory::response(
+        <<<'XML'
+<SendMessageResponse xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+    <Error i:nil="true"/>
+    <Balance>500</Balance>
+    <Messages>
+        <MessageStatus>
+            <ErrorCode i:nil="true"/>
+            <ErrorMessage i:nil="true"/>
+            <Number>+32470123456</Number>
+            <Type>S</Type>
+        </MessageStatus>
+    </Messages>
+</SendMessageResponse>
+XML
+    );
+}
 
 beforeEach(function (): void {
     Filament::setCurrentPanel(Filament::getPanel('citoyen'));
@@ -60,9 +112,10 @@ it('sends a recovery link to the recovery email of the mailbox', function (): vo
     );
 });
 
-it('gives the same answer and sends nothing without a recovery email', function (string $mail): void {
-    VirtualUser::factory()->create(['username' => 'phone.only@marche.be']);
-    Citoyen::factory()->create(['mail' => 'phone.only@marche.be', 'recovery_phone' => '0470123456']);
+it('gives the same answer and sends nothing without recovery data', function (string $mail): void {
+    $http = fakeSmsGateway(successfulSendResponse());
+    VirtualUser::factory()->create(['username' => 'no.recovery@marche.be']);
+    Citoyen::factory()->create(['mail' => 'no.recovery@marche.be']);
 
     livewire(RequestRecoveryLink::class)
         ->fillForm(['mail' => $mail])
@@ -70,7 +123,52 @@ it('gives the same answer and sends nothing without a recovery email', function 
         ->assertNotified('Demande enregistrée');
 
     Notification::assertNothingSent();
-})->with(['unknown mailbox' => 'nobody@marche.be', 'no recovery email' => 'phone.only@marche.be']);
+    $http->assertNothingSent();
+})->with(['unknown mailbox' => 'nobody@marche.be', 'no recovery data' => 'no.recovery@marche.be']);
+
+it('sends the recovery link by sms to the recovery phone', function (): void {
+    $http = fakeSmsGateway(successfulSendResponse());
+    $citoyen = Citoyen::factory()->create(['recovery_phone' => '0470 12 34 56']);
+
+    livewire(RequestRecoveryLink::class)
+        ->fillForm(['mail' => $citoyen->mail])
+        ->call('request')
+        ->assertNotified('Demande enregistrée');
+
+    $http->assertSent(fn (Request $request): bool => str_ends_with($request->url(), '/Send')
+        && str_contains($request->body(), urlencode('+32470123456'))
+        && str_contains($request->body(), urlencode('/citoyen/recuperation/')));
+    Notification::assertNothingSent();
+});
+
+it('sends the same single link by mail and by sms', function (): void {
+    $http = fakeSmsGateway(successfulSendResponse());
+    $citoyen = Citoyen::factory()->create(['recovery_email' => 'perso@example.com', 'recovery_phone' => '0470123456']);
+
+    livewire(RequestRecoveryLink::class)
+        ->fillForm(['mail' => $citoyen->mail])
+        ->call('request');
+
+    $mailedUrl = null;
+    Notification::assertSentOnDemand(CitoyenRecoveryLink::class, function (CitoyenRecoveryLink $notification) use (&$mailedUrl): bool {
+        $mailedUrl = $notification->url;
+
+        return true;
+    });
+
+    $http->assertSent(fn (Request $request): bool => str_ends_with($request->url(), '/Send')
+        && str_contains($request->body(), urlencode($mailedUrl)));
+});
+
+it('still answers when the sms gateway fails', function (): void {
+    fakeSmsGateway(HttpFactory::response('', 500));
+    $citoyen = Citoyen::factory()->create(['recovery_phone' => '0470123456']);
+
+    livewire(RequestRecoveryLink::class)
+        ->fillForm(['mail' => $citoyen->mail])
+        ->call('request')
+        ->assertNotified('Demande enregistrée');
+});
 
 it('logs the citoyen in on the password page only when they continue', function (): void {
     $citoyen = Citoyen::factory()->create(['charter_accepted_at' => now(), 'recovery_email' => 'perso@example.com']);

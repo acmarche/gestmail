@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Auth\VirtualUserProvider;
+use App\Sms\InforiusClient;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Placeholder;
 use Filament\Infolists\Components\Entry;
@@ -21,7 +22,7 @@ final class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        $this->app->scoped(InforiusClient::class, fn (): InforiusClient => InforiusClient::fromConfig());
     }
 
     public function boot(): void

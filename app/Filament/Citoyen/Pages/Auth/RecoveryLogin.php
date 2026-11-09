@@ -37,7 +37,7 @@ final class RecoveryLogin extends SimplePage
      */
     public static function issueToken(Citoyen $citoyen): string
     {
-        $token = Str::random(64);
+        $token = Str::random(40);
         $expiresAt = now()->addMinutes(self::LIFETIME_MINUTES);
 
         $previous = Cache::get(self::latestKey($citoyen));
